@@ -65,6 +65,9 @@ cmake-build-*/
 # IntelliJ
 out/
 
+# VSCode
+.vscode
+
 # JIRA plugin
 atlassian-ide-plugin.xml
 
@@ -168,3 +171,7 @@ Temporary Items
 
 # Helm Chart dependencies
 **/charts/*.tgz
+
+# Cli
+hapi-fhir-cli
+hapi-fhir-cli.cmd
