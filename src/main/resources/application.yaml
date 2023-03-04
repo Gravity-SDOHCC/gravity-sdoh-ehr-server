@@ -71,24 +71,50 @@ hapi:
     #    server_address: http://hapi.fhir.org/baseR4
     #    defer_indexing_for_codesystems_of_size: 101
     #    install_transitive_ig_dependencies: true
-    #    implementationguides:
-    ###    example from registry (packages.fhir.org)
-    #      swiss:
-    #        name: swiss.mednet.fhir
-    #        version: 0.8.0
-    #      example not from registry
-    #      ips_1_0_0:
-    #        url: https://build.fhir.org/ig/HL7/fhir-ips/package.tgz
-    #        name: hl7.fhir.uv.ips
-    #        version: 1.0.0
-    #    supported_resource_types:
-    #      - Patient
-    #      - Observation
+    # implementationguides:
+    #   sdoh-clinicalcare:
+    #     name: hl7.fhir.us.sdoh-clinicalcare
+    #     version: 2.0.0-update
+    #     url: https://build.fhir.org/ig/HL7/fhir-sdoh-clinicalcare/package.tgz
+
+    supported_resource_types:
+      - CareTeam
+      - Condition
+      - Consent
+      - Device
+      - DocumentReference
+      - Goal
+      - Group
+      - HealthcareService
+      - Location
+      - Observation
+      - Organization
+      - Patient
+      - PractitionerRole
+      - Practitioner
+      - Procedure
+      - Questionnaire
+      - QuestionnaireResponse
+      - RelatedPerson
+      - ServiceRequest
+      - Subscription
+      - Task
+      - SearchParameter
+      - OperationDefinition
+      - CodeSystem
+      - ValueSet
+      - StructureDefinition
+      - StructureMap
+      # - CapabilityStatement
+      # - ImplementationGuide
+
+    terminology:
+      serviceUrl: https://cts.nlm.nih.gov/fhir
     ##################################################
     # Allowed Bundle Types for persistence (defaults are: COLLECTION,DOCUMENT,MESSAGE)
     ##################################################
     #    allowed_bundle_types: COLLECTION,DOCUMENT,MESSAGE,TRANSACTION,TRANSACTIONRESPONSE,BATCH,BATCHRESPONSE,HISTORY,SEARCHSET
-    #    allow_cascading_deletes: true
+    allow_cascading_deletes: true
     #    allow_contains_searches: true
     #    allow_external_references: true
     #    allow_multiple_delete: true
@@ -107,13 +133,13 @@ hapi:
     ###  !!Extended Lucene/Elasticsearch Indexing is still a experimental feature, expect some features (e.g. _total=accurate) to not work as expected!!
     ###  more information here: https://hapifhir.io/hapi-fhir/docs/server_jpa/elastic.html
     advanced_lucene_indexing: false
-    bulk_export_enabled: false
-    bulk_import_enabled: false
+    bulk_export_enabled: true
+    bulk_import_enabled: true
     #    enforce_referential_integrity_on_delete: false
     # This is an experimental feature, and does not fully support _total and other FHIR features.
-    #    enforce_referential_integrity_on_delete: false
-    #    enforce_referential_integrity_on_write: false
-    #    etag_support_enabled: true
+    enforce_referential_integrity_on_delete: true
+    enforce_referential_integrity_on_write: true
+    etag_support_enabled: true
     #    expunge_enabled: true
     #    client_id_strategy: ALPHANUMERIC
     #    fhirpath_interceptor_enabled: false
