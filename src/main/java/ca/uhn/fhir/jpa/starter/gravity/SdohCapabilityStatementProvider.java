@@ -1,4 +1,4 @@
-package ca.uhn.fhir.jpa.starter.common;
+package ca.uhn.fhir.jpa.starter.gravity;
 
 import ca.uhn.fhir.jpa.api.dao.IFhirSystemDao;
 import ca.uhn.fhir.jpa.provider.JpaCapabilityStatementProvider;
@@ -15,7 +15,8 @@ import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import javax.annotation.Nonnull;
 
 public class SdohCapabilityStatementProvider extends JpaCapabilityStatementProvider {
-  SdohCapabilityStatementProvider(@Nonnull RestfulServer theRestfulServer, @Nonnull IFhirSystemDao<?, ?> theSystemDao,
+  public SdohCapabilityStatementProvider(@Nonnull RestfulServer theRestfulServer,
+      @Nonnull IFhirSystemDao<?, ?> theSystemDao,
       @Nonnull DaoConfig theDaoConfig, @Nonnull ISearchParamRegistry theSearchParamRegistry,
       IValidationSupport theValidationSupport) {
     super(theRestfulServer, theSystemDao, theDaoConfig, theSearchParamRegistry, theValidationSupport);
