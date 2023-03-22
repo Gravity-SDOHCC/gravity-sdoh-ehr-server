@@ -458,8 +458,8 @@ public class StarterJpaConfig {
 		/*
 		 * Add Authorization interceptor
 		 */
-		// SmartAuthInterceptor authorizationInterceptor = new SmartAuthInterceptor();
-		// fhirServer.registerInterceptor(authorizationInterceptor);
+		SmartAuthInterceptor authorizationInterceptor = new SmartAuthInterceptor();
+		fhirServer.registerInterceptor(authorizationInterceptor);
 
 		if (customInterceptorClasses == null) {
 			return;
