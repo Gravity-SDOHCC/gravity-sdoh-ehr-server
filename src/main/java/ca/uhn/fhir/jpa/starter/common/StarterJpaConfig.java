@@ -44,6 +44,7 @@ import ca.uhn.fhir.jpa.starter.annotations.OnCorsPresent;
 import ca.uhn.fhir.jpa.starter.annotations.OnImplementationGuidesPresent;
 import ca.uhn.fhir.jpa.starter.common.validation.IRepositoryValidationInterceptorFactory;
 import ca.uhn.fhir.jpa.starter.gravity.SdohCapabilityStatementProvider;
+import ca.uhn.fhir.jpa.starter.gravity.interceptors.SmartAuthInterceptor;
 import ca.uhn.fhir.jpa.starter.ips.IpsConfigCondition;
 import ca.uhn.fhir.jpa.starter.util.EnvironmentHelper;
 import ca.uhn.fhir.jpa.subscription.util.SubscriptionDebugLogInterceptor;
@@ -453,6 +454,12 @@ public class StarterJpaConfig {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void registerCustomInterceptors(RestfulServer fhirServer, ApplicationContext theAppContext,
 			List<String> customInterceptorClasses) {
+
+		/*
+		 * Add Authorization interceptor
+		 */
+		// SmartAuthInterceptor authorizationInterceptor = new SmartAuthInterceptor();
+		// fhirServer.registerInterceptor(authorizationInterceptor);
 
 		if (customInterceptorClasses == null) {
 			return;
