@@ -4,6 +4,7 @@ import ca.uhn.fhir.batch2.jobs.config.Batch2JobsConfig;
 import ca.uhn.fhir.jpa.batch2.JpaBatch2Config;
 import ca.uhn.fhir.jpa.starter.annotations.OnEitherVersion;
 import ca.uhn.fhir.jpa.starter.common.FhirTesterConfig;
+import ca.uhn.fhir.jpa.starter.gravity.controllers.AuthorizationController;
 import ca.uhn.fhir.jpa.starter.mdm.MdmConfig;
 import ca.uhn.fhir.jpa.subscription.channel.config.SubscriptionChannelConfig;
 import ca.uhn.fhir.jpa.subscription.match.config.SubscriptionProcessorConfig;
@@ -25,16 +26,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.DispatcherServlet;
 
-@ServletComponentScan(basePackageClasses = {RestfulServer.class})
-@SpringBootApplication(exclude = {ElasticsearchRestClientAutoConfiguration.class})
+@ServletComponentScan(basePackageClasses = { RestfulServer.class })
+@SpringBootApplication(exclude = { ElasticsearchRestClientAutoConfiguration.class })
 @Import({
-	SubscriptionSubmitterConfig.class,
-	SubscriptionProcessorConfig.class,
-	SubscriptionChannelConfig.class,
-	WebsocketDispatcherConfig.class,
-	MdmConfig.class,
-	JpaBatch2Config.class,
-	Batch2JobsConfig.class
+    SubscriptionSubmitterConfig.class,
+    SubscriptionProcessorConfig.class,
+    SubscriptionChannelConfig.class,
+    WebsocketDispatcherConfig.class,
+    MdmConfig.class,
+    JpaBatch2Config.class,
+    Batch2JobsConfig.class
 })
 public class Application extends SpringBootServletInitializer {
 
@@ -42,13 +43,13 @@ public class Application extends SpringBootServletInitializer {
 
     SpringApplication.run(Application.class, args);
 
-    //Server is now accessible at eg. http://localhost:8080/fhir/metadata
-    //UI is now accessible at http://localhost:8080/
+    // Server is now accessible at eg. http://localhost:8080/fhir/metadata
+    // UI is now accessible at http://localhost:8080/
   }
 
   @Override
   protected SpringApplicationBuilder configure(
-    SpringApplicationBuilder builder) {
+      SpringApplicationBuilder builder) {
     return builder.sources(Application.class);
   }
 
@@ -71,18 +72,40 @@ public class Application extends SpringBootServletInitializer {
   public ServletRegistrationBean overlayRegistrationBean() {
 
     AnnotationConfigWebApplicationContext annotationConfigWebApplicationContext = new AnnotationConfigWebApplicationContext();
-    annotationConfigWebApplicationContext.register(FhirTesterConfig.class);
+    annotationConfigWebApplicationContext.register(FhirTesterConfig.class, AuthorizationController.class);
 
     DispatcherServlet dispatcherServlet = new DispatcherServlet(
-      annotationConfigWebApplicationContext);
+        annotationConfigWebApplicationContext);
     dispatcherServlet.setContextClass(AnnotationConfigWebApplicationContext.class);
-    dispatcherServlet.setContextConfigLocation(FhirTesterConfig.class.getName());
+    dispatcherServlet.setContextConfigLocation("" + FhirTesterConfig.class.getName() + ", " +
+        AuthorizationController.class.getName());
 
     ServletRegistrationBean registrationBean = new ServletRegistrationBean();
     registrationBean.setServlet(dispatcherServlet);
     registrationBean.addUrlMappings("/*");
+    registrationBean.addUrlMappings("/fhir/oauth/*");
     registrationBean.setLoadOnStartup(1);
     return registrationBean;
 
   }
+
+  // @Bean
+  // public ServletRegistrationBean oauthRegistrationBean() {
+
+  // AnnotationConfigWebApplicationContext annotationConfigWebApplicationContext =
+  // new AnnotationConfigWebApplicationContext();
+  // annotationConfigWebApplicationContext.register(AuthorizationController.class);
+
+  // DispatcherServlet dispatcherServlet = new DispatcherServlet(
+  // annotationConfigWebApplicationContext);
+  // dispatcherServlet.setContextClass(AnnotationConfigWebApplicationContext.class);
+  // dispatcherServlet.setContextConfigLocation(AuthorizationController.class.getName());
+
+  // ServletRegistrationBean registrationBean = new ServletRegistrationBean();
+  // registrationBean.setServlet(dispatcherServlet);
+  // registrationBean.addUrlMappings("/fhir/oauth/*");
+  // registrationBean.setLoadOnStartup(1);
+  // return registrationBean;
+
+  // }
 }
