@@ -12,7 +12,7 @@ import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Task;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import org.springframework.beans.factory.annotation.Autowired;
-import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
+import ca.uhn.fhir.jpa.starter.gravity.services.TaskService;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.IdType;
@@ -22,10 +22,14 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
 import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
 import ca.uhn.fhir.rest.gclient.DateClientParam;
+import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.jpa.starter.gravity.ServerLogger;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -36,32 +40,18 @@ import java.util.stream.Collectors;
 
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 
-/**
- * This class is an interceptor that is called whenever a Task resource is
- * created.
- */
 @Service
-public class PostTaskToCPInterceptor extends InterceptorAdapter {
+public class PostTaskInterceptor extends InterceptorAdapter {
 
   @Autowired
-  private IFhirResourceDao<Task> taskDao;
+  private TaskService taskService;
   @Autowired
   private ServletRequest servletRequest;
+  private static final AppProperties appProperties = new AppProperties();
   private static final Logger logger = ServerLogger.getLogger();
   private IGenericClient client;
   private FhirContext ctx;
 
-  /**
-   * This method is called whenever a Task resource is created. It extracts the
-   * owner reference from
-   * the Task and sends the Task to the receiver FHIR server. It also updates the
-   * Task status to
-   * RECEIVED if the Task was successfully sent to the receiver FHIR server.
-   *
-   * @param theResource       The Task resource that was created
-   * @param theRequestDetails The request details
-   *
-   */
   @Hook(Pointcut.STORAGE_PRECOMMIT_RESOURCE_CREATED)
   public void handleTaskCreation(IBaseResource theResource, RequestDetails theRequestDetails,
       ResponseDetails theResponseDetails) {
@@ -71,40 +61,30 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
 
     Task createdTask = (Task) theResource;
 
-    // Extract the absolute reference URL of the referenced owner
     Reference ownerReference = createdTask.getOwner();
     String ownerReferenceUrl = ownerReference.getReference();
     String ownerServerBaseUrl = ownerReferenceUrl.substring(0, ownerReferenceUrl.indexOf("/Organization"));
 
-    // Make sure all the references within the Task have absolute URLs
     String baseUrl = theRequestDetails.getFhirServerBase();
     updateTaskReferences(createdTask, baseUrl);
 
-    // Send the post request containing the created Task to the receiver FHIR server
     sendTaskToReceiver(createdTask, ownerServerBaseUrl, theRequestDetails);
   }
 
-  /**
-   * This method is called every 60 seconds to poll the receiver FHIR server for
-   * any updates to the
-   * Task. It extracts the receiver URL from the owner reference and uses it to
-   * poll the receiver
-   * FHIR server for any updates to the Task. It then updates the Task status
-   * accordingly.
-   *
-   *
-   */
-  @Scheduled(fixedRate = 60000) // Poll every 60 seconds (60000 ms)
+  @Scheduled(fixedRate = 60000)
   public void pollTaskUpdates() {
-    // TODO: unable to pass an argument to the method. find a way to dynamically get
-    // the server base url
-    // String serverBaseUrl = getServerBaseUrl();
-    String serverBaseUrl = "http://localhost:8080/fhir";
+    // String serverBaseUrl = "http://localhost:8080/fhir";
+    RequestDetails theRequestDetails = null;
+    // if (theRequestDetails != null) {
+    // serverBaseUrl = theRequestDetails.getFhirServerBase();
+    // }
+    String serverBaseUrl = appProperties.getServer_address();
+    // String serverBaseUrl = theRequestDetails.getFhirServerBase();
+    setupClient(serverBaseUrl);
     try {
       List<Task> receivedTasks = fetchReceivedTasksFromSelf(serverBaseUrl);
 
       for (Task task : receivedTasks) {
-        // Extract the receiver URL from the owner reference
         String receiverRefUrl = task.getOwner().getReference();
         String receiverUrl = receiverRefUrl.substring(0, receiverRefUrl.indexOf("/Organization"));
         IIdType requesterReference = task.getRequester().getReferenceElement();
@@ -114,27 +94,29 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
         List<Task> updatedTasks = fetchUpdatedTasksFromReceiverServer(receiverUrl, requesterId, lastUpdated);
 
         for (Task updatedTask : updatedTasks) {
-          Task existingTask = taskDao.read(new IdType(updatedTask.getId()));
+          // Task existingTask = taskService.readTask(new IdType(updatedTask.getId()),
+          // theRequestDetails);
+          Task existingTask = client.read().resource(Task.class).withId(updatedTask.getId()).execute();
           if (existingTask != null && !existingTask.getStatus().equals(updatedTask.getStatus())) {
             existingTask.setStatus(updatedTask.getStatus());
-            taskDao.update(existingTask);
+            // Task newUpdatedTask = taskService.updateTask(existingTask,
+            // theRequestDetails);
+            Task newUpdatedTask = (Task) client.update().resource(existingTask).execute().getResource();
+            if (newUpdatedTask != null) {
+              logger.info("Updated Task: " + newUpdatedTask.getId() + " with status: " + newUpdatedTask.getStatus());
+            } else {
+              logger.severe("Failed to update Task: " + existingTask.getId() + " status.");
+            }
           }
         }
       }
     } catch (Exception e) {
-      // TODO: handle exception
-      logger.severe("Failed to send Task to receiver: " + e.getMessage());
-    }
 
+      logger.severe("Something wrong happened when polling task for update or updating the status on: " + serverBaseUrl
+          + " " + e.getMessage());
+    }
   }
 
-  /**
-   * This method is used to update all the references within a Task to have
-   * absolute URLs.
-   *
-   * @param task    The Task resource
-   * @param baseUrl The base URL of the FHIR server
-   */
   private void updateTaskReferences(Task task, String baseUrl) {
     task.getPartOf().forEach(reference -> {
       updateReference(reference, baseUrl);
@@ -145,27 +127,12 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
     updateReference(task.getFocus(), baseUrl);
   }
 
-  /**
-   * This method is used to update a reference to have an absolute URL.
-   *
-   * @param reference The reference to be updated
-   * @param baseUrl   The base URL of the FHIR server
-   */
   private void updateReference(Reference reference, String baseUrl) {
     if (reference != null && !reference.getReference().startsWith("http")) {
       reference.setReference(baseUrl + "/" + reference.getReference());
     }
   }
 
-  /**
-   * This method is used to send the created Task to the receiver FHIR server, and
-   * update the Task status
-   * to RECEIVED if the Task was successfully sent to the receiver FHIR server.
-   *
-   * @param task        The Task resource
-   * @param receiverUrl The receiver URL
-   *
-   */
   private void sendTaskToReceiver(Task task, String receiverUrl, RequestDetails theRequestDetails) {
     setupClient(receiverUrl);
 
@@ -174,23 +141,18 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
 
       if (outcome.getCreated()) {
         task.setStatus(Task.TaskStatus.RECEIVED);
-        taskDao.update(task, theRequestDetails);
+        Task updatedTask = taskService.updateTask(task, theRequestDetails);
+        if (updatedTask != null) {
+          logger.info("Updated Task: " + updatedTask.getId() + " with status: " + updatedTask.getStatus());
+        } else {
+          logger.severe("Failed to update Task: " + task.getId() + " status to received.");
+        }
       }
     } catch (Exception e) {
       logger.severe("Failed to send Task to receiver: " + e.getMessage());
-      // Handle exception and take any necessary action
     }
   }
 
-  /**
-   * This method is used to check the receiver fhir server for updated task since
-   * the last search.
-   *
-   * @param receiverUrl The receiver base URL
-   * @param requesterId The requester ID
-   * @param lastUpdated The last updated date
-   * @return A list of Tasks that were updated since the last search
-   */
   private List<Task> fetchUpdatedTasksFromReceiverServer(String receiverUrl, String requesterId, Date lastUpdated) {
     setupClient(receiverUrl);
 
@@ -211,13 +173,6 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
         .collect(Collectors.toList());
   }
 
-  /**
-   * This method is used to fetch all the Tasks with status RECEIVED from the FHIR
-   * server.
-   *
-   * @param serverBaseUrl This FHIR server base URL
-   * @return A list of Tasks with status RECEIVED
-   */
   private List<Task> fetchReceivedTasksFromSelf(String serverBaseUrl) {
     setupClient(serverBaseUrl);
 
@@ -238,7 +193,6 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
 
   private void setupClient(String serverBaseUrl) {
     ctx = FhirContext.forR4();
-    // Disable server validation (don't pull the server's metadata first)
     ctx.getRestfulClientFactory().setServerValidationMode(ServerValidationModeEnum.NEVER);
     ctx.getRestfulClientFactory().setConnectTimeout(20 * 1000);
     client = ctx.newRestfulGenericClient(serverBaseUrl);
@@ -250,6 +204,12 @@ public class PostTaskToCPInterceptor extends InterceptorAdapter {
     int serverPort = servletRequest.getServerPort();
     String contextPath = servletRequest.getServletContext().getContextPath();
     return scheme + "://" + serverName + ":" + serverPort + contextPath;
+  }
+
+  private RequestDetails getRequestDetails() {
+    ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+    return (RequestDetails) requestAttributes.getAttribute("ca.uhn.fhir.rest.server.RestfulServer.REQUEST_DETAILS",
+        RequestAttributes.SCOPE_REQUEST);
   }
 
 }
