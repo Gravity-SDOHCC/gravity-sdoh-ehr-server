@@ -43,173 +43,166 @@ import ca.uhn.fhir.rest.gclient.TokenClientParam;
 @Service
 public class PostTaskInterceptor extends InterceptorAdapter {
 
-  @Autowired
-  private TaskService taskService;
-  @Autowired
-  private ServletRequest servletRequest;
-  private static final AppProperties appProperties = new AppProperties();
-  private static final Logger logger = ServerLogger.getLogger();
-  private IGenericClient client;
-  private FhirContext ctx;
+	@Autowired
+	private TaskService taskService;
+	@Autowired
+	private ServletRequest servletRequest;
+	private static final AppProperties appProperties = new AppProperties();
+	private static final Logger logger = ServerLogger.getLogger();
+	private IGenericClient client;
+	private FhirContext ctx;
 
-  @Hook(Pointcut.STORAGE_PRECOMMIT_RESOURCE_CREATED)
-  public void handleTaskCreation(IBaseResource theResource, RequestDetails theRequestDetails,
-      ResponseDetails theResponseDetails) {
-    if (!(theResource instanceof Task)) {
-      return;
-    }
+	@Hook(Pointcut.STORAGE_PRECOMMIT_RESOURCE_CREATED)
+	public void handleTaskCreation(IBaseResource theResource, RequestDetails theRequestDetails,
+			ResponseDetails theResponseDetails) {
+		if (!(theResource instanceof Task)) {
+			return;
+		}
+		Task createdTask = (Task) theResource;
 
-    Task createdTask = (Task) theResource;
+		Reference ownerReference = createdTask.getOwner();
+		String ownerReferenceUrl = ownerReference.getReference();
+		String ownerServerBaseUrl = ownerReferenceUrl.substring(0, ownerReferenceUrl.indexOf("/Organization"));
 
-    Reference ownerReference = createdTask.getOwner();
-    String ownerReferenceUrl = ownerReference.getReference();
-    String ownerServerBaseUrl = ownerReferenceUrl.substring(0, ownerReferenceUrl.indexOf("/Organization"));
+		String baseUrl = theRequestDetails.getFhirServerBase();
+		updateTaskReferences(createdTask, baseUrl);
 
-    String baseUrl = theRequestDetails.getFhirServerBase();
-    updateTaskReferences(createdTask, baseUrl);
+		sendTaskToReceiver(createdTask, ownerServerBaseUrl, theRequestDetails);
+	}
 
-    sendTaskToReceiver(createdTask, ownerServerBaseUrl, theRequestDetails);
-  }
+	@Scheduled(fixedRate = 60000)
+	public void pollTaskUpdates() {
+		// TODO: dynamically get the base URL. env variable maybe?
+		String serverBaseUrl = "http://localhost:8080/fhir";
+		setupClient(serverBaseUrl);
+		try {
+			List<Task> receivedTasks = fetchReceivedTasksFromSelf(serverBaseUrl);
 
-  @Scheduled(fixedRate = 60000)
-  public void pollTaskUpdates() {
-    // String serverBaseUrl = "http://localhost:8080/fhir";
-    RequestDetails theRequestDetails = null;
-    // if (theRequestDetails != null) {
-    // serverBaseUrl = theRequestDetails.getFhirServerBase();
-    // }
-    String serverBaseUrl = appProperties.getServer_address();
-    // String serverBaseUrl = theRequestDetails.getFhirServerBase();
-    setupClient(serverBaseUrl);
-    try {
-      List<Task> receivedTasks = fetchReceivedTasksFromSelf(serverBaseUrl);
+			for (Task task : receivedTasks) {
+				String receiverRefUrl = task.getOwner().getReference();
+				String receiverUrl = receiverRefUrl.substring(0, receiverRefUrl.indexOf("/Organization"));
+				IIdType requesterReference = task.getRequester().getReferenceElement();
+				String requesterId = requesterReference.getIdPart();
 
-      for (Task task : receivedTasks) {
-        String receiverRefUrl = task.getOwner().getReference();
-        String receiverUrl = receiverRefUrl.substring(0, receiverRefUrl.indexOf("/Organization"));
-        IIdType requesterReference = task.getRequester().getReferenceElement();
-        String requesterId = requesterReference.getIdPart();
+				Date lastUpdated = task.getMeta().getLastUpdated();
+				List<Task> updatedTasks = fetchUpdatedTasksFromReceiverServer(receiverUrl, requesterId, lastUpdated);
 
-        Date lastUpdated = task.getMeta().getLastUpdated();
-        List<Task> updatedTasks = fetchUpdatedTasksFromReceiverServer(receiverUrl, requesterId, lastUpdated);
+				for (Task updatedTask : updatedTasks) {
+					Task existingTask = client.read().resource(Task.class).withId(updatedTask.getId()).execute();
+					if (existingTask != null && !existingTask.getStatus().equals(updatedTask.getStatus())) {
+						existingTask.setStatus(updatedTask.getStatus());
+						Task newUpdatedTask = (Task) client.update().resource(existingTask).execute().getResource();
+						if (newUpdatedTask != null) {
+							logger.info(
+									"Updated Task: " + newUpdatedTask.getId() + " with status: " + newUpdatedTask.getStatus());
+						} else {
+							logger.severe("Failed to update Task: " + existingTask.getId() + " status.");
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
 
-        for (Task updatedTask : updatedTasks) {
-          // Task existingTask = taskService.readTask(new IdType(updatedTask.getId()),
-          // theRequestDetails);
-          Task existingTask = client.read().resource(Task.class).withId(updatedTask.getId()).execute();
-          if (existingTask != null && !existingTask.getStatus().equals(updatedTask.getStatus())) {
-            existingTask.setStatus(updatedTask.getStatus());
-            // Task newUpdatedTask = taskService.updateTask(existingTask,
-            // theRequestDetails);
-            Task newUpdatedTask = (Task) client.update().resource(existingTask).execute().getResource();
-            if (newUpdatedTask != null) {
-              logger.info("Updated Task: " + newUpdatedTask.getId() + " with status: " + newUpdatedTask.getStatus());
-            } else {
-              logger.severe("Failed to update Task: " + existingTask.getId() + " status.");
-            }
-          }
-        }
-      }
-    } catch (Exception e) {
+			logger.severe(
+					"Something wrong happened when polling task for update or updating the status on: " + serverBaseUrl
+							+ " " + e.getMessage());
+		}
+	}
 
-      logger.severe("Something wrong happened when polling task for update or updating the status on: " + serverBaseUrl
-          + " " + e.getMessage());
-    }
-  }
+	private void updateTaskReferences(Task task, String baseUrl) {
+		task.getPartOf().forEach(reference -> {
+			updateReference(reference, baseUrl);
+		});
 
-  private void updateTaskReferences(Task task, String baseUrl) {
-    task.getPartOf().forEach(reference -> {
-      updateReference(reference, baseUrl);
-    });
+		updateReference(task.getRequester(), baseUrl);
+		updateReference(task.getFor(), baseUrl);
+		updateReference(task.getFocus(), baseUrl);
+	}
 
-    updateReference(task.getRequester(), baseUrl);
-    updateReference(task.getFor(), baseUrl);
-    updateReference(task.getFocus(), baseUrl);
-  }
+	private void updateReference(Reference reference, String baseUrl) {
+		if (reference != null && !reference.getReference().startsWith("http")) {
+			reference.setReference(baseUrl + "/" + reference.getReference());
+		}
+	}
 
-  private void updateReference(Reference reference, String baseUrl) {
-    if (reference != null && !reference.getReference().startsWith("http")) {
-      reference.setReference(baseUrl + "/" + reference.getReference());
-    }
-  }
+	private void sendTaskToReceiver(Task task, String receiverUrl, RequestDetails theRequestDetails) {
+		setupClient(receiverUrl);
 
-  private void sendTaskToReceiver(Task task, String receiverUrl, RequestDetails theRequestDetails) {
-    setupClient(receiverUrl);
+		try {
+			MethodOutcome outcome = client.create().resource(task).execute();
 
-    try {
-      MethodOutcome outcome = client.create().resource(task).execute();
+			if (outcome.getCreated()) {
+				task.setStatus(Task.TaskStatus.RECEIVED);
+				Task updatedTask = taskService.updateTask(task, theRequestDetails);
+				if (updatedTask != null) {
+					logger.info("Updated Task: " + updatedTask.getId() + " with status: " + updatedTask.getStatus());
+				} else {
+					logger.severe("Failed to update Task: " + task.getId() + " status to received.");
+				}
+			}
+		} catch (Exception e) {
+			logger.severe("Failed to send Task to receiver: " + e.getMessage());
+		}
+	}
 
-      if (outcome.getCreated()) {
-        task.setStatus(Task.TaskStatus.RECEIVED);
-        Task updatedTask = taskService.updateTask(task, theRequestDetails);
-        if (updatedTask != null) {
-          logger.info("Updated Task: " + updatedTask.getId() + " with status: " + updatedTask.getStatus());
-        } else {
-          logger.severe("Failed to update Task: " + task.getId() + " status to received.");
-        }
-      }
-    } catch (Exception e) {
-      logger.severe("Failed to send Task to receiver: " + e.getMessage());
-    }
-  }
+	private List<Task> fetchUpdatedTasksFromReceiverServer(String receiverUrl, String requesterId, Date lastUpdated) {
+		setupClient(receiverUrl);
 
-  private List<Task> fetchUpdatedTasksFromReceiverServer(String receiverUrl, String requesterId, Date lastUpdated) {
-    setupClient(receiverUrl);
+		DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneOffset.UTC);
+		String lastUpdatedParam = formatter.format(lastUpdated.toInstant());
 
-    DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneOffset.UTC);
-    String lastUpdatedParam = formatter.format(lastUpdated.toInstant());
+		Bundle response = client.search()
+				.forResource(Task.class)
+				.where(new ReferenceClientParam(Task.SP_REQUESTER).hasId(requesterId))
+				.and(new DateClientParam("_lastUpdated").afterOrEquals().millis(lastUpdatedParam))
+				.returnBundle(Bundle.class)
+				.execute();
 
-    Bundle response = client.search()
-        .forResource(Task.class)
-        .where(new ReferenceClientParam(Task.SP_REQUESTER).hasId(requesterId))
-        .and(new DateClientParam("_lastUpdated").afterOrEquals().millis(lastUpdatedParam))
-        .returnBundle(Bundle.class)
-        .execute();
+		return response.getEntry().stream()
+				.map(Bundle.BundleEntryComponent::getResource)
+				.filter(resource -> resource instanceof Task)
+				.map(resource -> (Task) resource)
+				.collect(Collectors.toList());
+	}
 
-    return response.getEntry().stream()
-        .map(Bundle.BundleEntryComponent::getResource)
-        .filter(resource -> resource instanceof Task)
-        .map(resource -> (Task) resource)
-        .collect(Collectors.toList());
-  }
+	private List<Task> fetchReceivedTasksFromSelf(String serverBaseUrl) {
+		setupClient(serverBaseUrl);
 
-  private List<Task> fetchReceivedTasksFromSelf(String serverBaseUrl) {
-    setupClient(serverBaseUrl);
+		Bundle response = client.search()
+				.forResource(Task.class)
+				.where(new TokenClientParam("status:not").exactly().code("rejected"))
+				.and(new TokenClientParam("status:not").exactly().code("canceled"))
+				.and(new TokenClientParam("status:not").exactly().code("completed"))
+				.returnBundle(Bundle.class)
+				.execute();
 
-    Bundle response = client.search()
-        .forResource(Task.class)
-        .where(new TokenClientParam("status:not").exactly().code("rejected"))
-        .and(new TokenClientParam("status:not").exactly().code("canceled"))
-        .and(new TokenClientParam("status:not").exactly().code("completed"))
-        .returnBundle(Bundle.class)
-        .execute();
+		return response.getEntry().stream()
+				.map(Bundle.BundleEntryComponent::getResource)
+				.filter(resource -> resource instanceof Task)
+				.map(resource -> (Task) resource)
+				.collect(Collectors.toList());
+	}
 
-    return response.getEntry().stream()
-        .map(Bundle.BundleEntryComponent::getResource)
-        .filter(resource -> resource instanceof Task)
-        .map(resource -> (Task) resource)
-        .collect(Collectors.toList());
-  }
+	private void setupClient(String serverBaseUrl) {
+		ctx = FhirContext.forR4();
+		ctx.getRestfulClientFactory().setServerValidationMode(ServerValidationModeEnum.NEVER);
+		ctx.getRestfulClientFactory().setConnectTimeout(20 * 1000);
+		client = ctx.newRestfulGenericClient(serverBaseUrl);
+	}
 
-  private void setupClient(String serverBaseUrl) {
-    ctx = FhirContext.forR4();
-    ctx.getRestfulClientFactory().setServerValidationMode(ServerValidationModeEnum.NEVER);
-    ctx.getRestfulClientFactory().setConnectTimeout(20 * 1000);
-    client = ctx.newRestfulGenericClient(serverBaseUrl);
-  }
+	private String getServerBaseUrl() {
+		String scheme = servletRequest.getScheme();
+		String serverName = servletRequest.getServerName();
+		int serverPort = servletRequest.getServerPort();
+		String contextPath = servletRequest.getServletContext().getContextPath();
+		return scheme + "://" + serverName + ":" + serverPort + contextPath;
+	}
 
-  private String getServerBaseUrl() {
-    String scheme = servletRequest.getScheme();
-    String serverName = servletRequest.getServerName();
-    int serverPort = servletRequest.getServerPort();
-    String contextPath = servletRequest.getServletContext().getContextPath();
-    return scheme + "://" + serverName + ":" + serverPort + contextPath;
-  }
-
-  private RequestDetails getRequestDetails() {
-    ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-    return (RequestDetails) requestAttributes.getAttribute("ca.uhn.fhir.rest.server.RestfulServer.REQUEST_DETAILS",
-        RequestAttributes.SCOPE_REQUEST);
-  }
+	private RequestDetails getRequestDetails() {
+		ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
+				.getRequestAttributes();
+		return (RequestDetails) requestAttributes.getAttribute("ca.uhn.fhir.rest.server.RestfulServer.REQUEST_DETAILS",
+				RequestAttributes.SCOPE_REQUEST);
+	}
 
 }
