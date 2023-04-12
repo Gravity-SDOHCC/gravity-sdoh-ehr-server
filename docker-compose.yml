@@ -3,6 +3,7 @@ services:
   gravity-ehr:
     build: .
     container_name: gravity-ehr
+    network_mode: "host"
     restart: on-failure
     ports:
       - "8080:8080"
