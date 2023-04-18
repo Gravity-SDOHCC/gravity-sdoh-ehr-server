@@ -460,7 +460,7 @@ public class StarterJpaConfig {
 			List<String> customInterceptorClasses) {
 
 		/*
-		 * Registeer Authorization interceptor
+		 * Register Authorization interceptor
 		 */
 		// SmartAuthInterceptor authorizationInterceptor = new SmartAuthInterceptor();
 		// fhirServer.registerInterceptor(authorizationInterceptor);
