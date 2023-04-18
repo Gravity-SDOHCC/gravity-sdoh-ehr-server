@@ -4,53 +4,41 @@ import ca.uhn.fhir.rest.server.interceptor.InterceptorAdapter;
 import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Pointcut;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
-import javax.servlet.ServletRequest;
 import ca.uhn.fhir.rest.api.server.ResponseDetails;
 
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Task;
+
 import ca.uhn.fhir.rest.api.MethodOutcome;
-import org.springframework.beans.factory.annotation.Autowired;
-import ca.uhn.fhir.jpa.starter.gravity.services.TaskService;
 
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Reference;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
-import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
-import ca.uhn.fhir.rest.gclient.DateClientParam;
-import ca.uhn.fhir.jpa.starter.AppProperties;
+import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import ca.uhn.fhir.jpa.starter.gravity.ServerLogger;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import ca.uhn.fhir.rest.gclient.TokenClientParam;
-
 @Service
 public class PostTaskInterceptor extends InterceptorAdapter {
-
-	@Autowired
-	private TaskService taskService;
-	@Autowired
-	private ServletRequest servletRequest;
-	private static final AppProperties appProperties = new AppProperties();
 	private static final Logger logger = ServerLogger.getLogger();
-	private IGenericClient client;
-	private FhirContext ctx;
+
+	private final FhirContext ctx = FhirContext.forR4();;
+	private static List<String> taskIdsToUpdate = Collections.synchronizedList(new ArrayList<>());
+
+	private static Map<String, String> activeTasksMap = Collections.synchronizedMap(new HashMap<String, String>());
+	private static String thisServerBaseUrl = "";
 
 	@Hook(Pointcut.STORAGE_PRECOMMIT_RESOURCE_CREATED)
 	public void handleTaskCreation(IBaseResource theResource, RequestDetails theRequestDetails,
@@ -63,40 +51,51 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 		Reference ownerReference = createdTask.getOwner();
 		String ownerReferenceUrl = ownerReference.getReference();
 		String ownerServerBaseUrl = ownerReferenceUrl.substring(0, ownerReferenceUrl.indexOf("/Organization"));
+		thisServerBaseUrl = theRequestDetails.getFhirServerBase();
+		updateTaskReferences(createdTask, thisServerBaseUrl);
+		String recipientTaskId = sendTaskToReceiver(createdTask, ownerServerBaseUrl);
 
-		String baseUrl = theRequestDetails.getFhirServerBase();
-		updateTaskReferences(createdTask, baseUrl);
+		if (recipientTaskId != null) {
+			activeTasksMap.put(createdTask.getIdPart(), recipientTaskId);
+			taskIdsToUpdate.add(createdTask.getIdPart());
+			logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + createdTask.getIdPart()
+					+ " is linked to recipient task " + activeTasksMap.get(createdTask.getIdPart()));
+		}
 
-		sendTaskToReceiver(createdTask, ownerServerBaseUrl, theRequestDetails);
 	}
 
-	@Scheduled(fixedRate = 60000)
+	@Scheduled(fixedRate = 10000)
 	public void pollTaskUpdates() {
-		// TODO: dynamically get the base URL. env variable maybe?
-		String serverBaseUrl = "http://localhost:8080/fhir";
-		setupClient(serverBaseUrl);
+		IGenericClient ehrClient = setupClient(thisServerBaseUrl);
 		try {
-			List<Task> receivedTasks = fetchReceivedTasksFromSelf(serverBaseUrl);
+			List<Task> activeTasks = fetchActiveTasksFromSelf(ehrClient);
+			for (Task task : activeTasks) {
+				if (task != null && task.getStatus() == Task.TaskStatus.REQUESTED) {
+					updateTaskStatus(ehrClient, task, "received");
+				} else {
+					String receiverRefUrl = task.getOwner().getReference();
+					String receiverUrl = "";
+					if (receiverRefUrl.startsWith("http")) {
+						receiverUrl = receiverRefUrl.substring(0, receiverRefUrl.indexOf("/Organization"));
+					} else {
+						logger.warning(
+								"Cannot poll updates on task " + task.getIdPart() + ": The task owner base URL is unknown.");
+						continue;
+					}
+					String updatedTaskId = activeTasksMap.get(task.getIdPart());
+					if (updatedTaskId == null) {
+						taskIdsToUpdate.remove(task.getIdPart());
+						continue;
+					}
+					Task updatedTask = fetchUpdatedTaskFromReceiverServer(receiverUrl, updatedTaskId);
 
-			for (Task task : receivedTasks) {
-				String receiverRefUrl = task.getOwner().getReference();
-				String receiverUrl = receiverRefUrl.substring(0, receiverRefUrl.indexOf("/Organization"));
-				IIdType requesterReference = task.getRequester().getReferenceElement();
-				String requesterId = requesterReference.getIdPart();
-
-				Date lastUpdated = task.getMeta().getLastUpdated();
-				List<Task> updatedTasks = fetchUpdatedTasksFromReceiverServer(receiverUrl, requesterId, lastUpdated);
-
-				for (Task updatedTask : updatedTasks) {
-					Task existingTask = client.read().resource(Task.class).withId(updatedTask.getId()).execute();
-					if (existingTask != null && !existingTask.getStatus().equals(updatedTask.getStatus())) {
-						existingTask.setStatus(updatedTask.getStatus());
-						Task newUpdatedTask = (Task) client.update().resource(existingTask).execute().getResource();
-						if (newUpdatedTask != null) {
-							logger.info(
-									"Updated Task: " + newUpdatedTask.getId() + " with status: " + newUpdatedTask.getStatus());
-						} else {
-							logger.severe("Failed to update Task: " + existingTask.getId() + " status.");
+					if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
+							&& !updatedTask.getStatus().equals(task.getStatus())) {
+						String status = updatedTask.getStatus().toCode();
+						updateTaskStatus(ehrClient, task, status);
+						if (status == "cancelled" || status == "rejected" || status == "completed") {
+							taskIdsToUpdate.remove(task.getIdPart());
+							activeTasksMap.remove(task.getIdPart());
 						}
 					}
 				}
@@ -104,8 +103,8 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 		} catch (Exception e) {
 
 			logger.severe(
-					"Something wrong happened when polling task for update or updating the status on: " + serverBaseUrl
-							+ " " + e.getMessage());
+					"Something wrong happened when polling task for update or updating the status on server: "
+							+ e.getMessage());
 		}
 	}
 
@@ -125,84 +124,70 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 		}
 	}
 
-	private void sendTaskToReceiver(Task task, String receiverUrl, RequestDetails theRequestDetails) {
-		setupClient(receiverUrl);
+	private boolean updateTaskStatus(IGenericClient client, Task task, String newStatus) {
+		try {
+			logger.info("Updating task " + task.getIdPart() + " status to  " + newStatus);
+			// Update the status and persist the Task
+			task.setStatus(Task.TaskStatus.fromCode(newStatus));
+			Task newUpdatedTask = (Task) client.update().resource(task).execute().getResource();
+			if (newUpdatedTask != null) {
+				logger.info(
+						"Updated Task: " + newUpdatedTask.getIdPart() + " with status: " + newUpdatedTask.getStatus());
+				return true;
+			} else {
+				logger.severe("Failed to update Task: " + task.getIdPart() + " status.");
+			}
+		} catch (Exception e) {
+			logger.severe(
+					"Failed to update task with id " + task.getIdPart() + " to " + newStatus + ": " + e.getMessage());
+		}
+		return false;
+	}
 
+	private String sendTaskToReceiver(Task task, String receiverBaseUrl) {
+		// Implement your POST request logic to send the Task to the receiver server
+		// Return taskId if successful, null otherwise
+		IGenericClient client = setupClient(receiverBaseUrl);
 		try {
 			MethodOutcome outcome = client.create().resource(task).execute();
-
-			if (outcome.getCreated()) {
-				task.setStatus(Task.TaskStatus.RECEIVED);
-				Task updatedTask = taskService.updateTask(task, theRequestDetails);
-				if (updatedTask != null) {
-					logger.info("Updated Task: " + updatedTask.getId() + " with status: " + updatedTask.getStatus());
-				} else {
-					logger.severe("Failed to update Task: " + task.getId() + " status to received.");
-				}
-			}
+			Task t = (Task) outcome.getResource();
+			return t.getIdElement().getIdPart();
 		} catch (Exception e) {
 			logger.severe("Failed to send Task to receiver: " + e.getMessage());
 		}
+		return null;
 	}
 
-	private List<Task> fetchUpdatedTasksFromReceiverServer(String receiverUrl, String requesterId, Date lastUpdated) {
-		setupClient(receiverUrl);
+	private Task fetchUpdatedTaskFromReceiverServer(String receiverUrl, String taskId) {
+		IGenericClient client = setupClient(receiverUrl);
 
-		DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneOffset.UTC);
-		String lastUpdatedParam = formatter.format(lastUpdated.toInstant());
+		Task task = client.read().resource(Task.class).withId(taskId).execute();
+		return task;
+	}
 
-		Bundle response = client.search()
-				.forResource(Task.class)
-				.where(new ReferenceClientParam(Task.SP_REQUESTER).hasId(requesterId))
-				.and(new DateClientParam("_lastUpdated").afterOrEquals().millis(lastUpdatedParam))
+	private List<Task> fetchActiveTasksFromSelf(IGenericClient client) {
+		logger.info("CHECKING ACTIVE TASKS: " + taskIdsToUpdate.size());
+		if (taskIdsToUpdate.size() == 0) {
+			return new ArrayList<Task>();
+		}
+		// Build a comma-separated string of IDs
+		String idList = String.join(",", taskIdsToUpdate);
+
+		// Search for tasks with the specified IDs
+		Bundle response = client.search().forResource(Task.class)
+				.where(new TokenClientParam("_id").exactly().code(idList))
 				.returnBundle(Bundle.class)
 				.execute();
 
 		return response.getEntry().stream()
-				.map(Bundle.BundleEntryComponent::getResource)
-				.filter(resource -> resource instanceof Task)
-				.map(resource -> (Task) resource)
+				.map(bundleEntryComponent -> (Task) bundleEntryComponent.getResource())
 				.collect(Collectors.toList());
 	}
 
-	private List<Task> fetchReceivedTasksFromSelf(String serverBaseUrl) {
-		setupClient(serverBaseUrl);
-
-		Bundle response = client.search()
-				.forResource(Task.class)
-				.where(new TokenClientParam("status:not").exactly().code("rejected"))
-				.and(new TokenClientParam("status:not").exactly().code("canceled"))
-				.and(new TokenClientParam("status:not").exactly().code("completed"))
-				.returnBundle(Bundle.class)
-				.execute();
-
-		return response.getEntry().stream()
-				.map(Bundle.BundleEntryComponent::getResource)
-				.filter(resource -> resource instanceof Task)
-				.map(resource -> (Task) resource)
-				.collect(Collectors.toList());
-	}
-
-	private void setupClient(String serverBaseUrl) {
-		ctx = FhirContext.forR4();
+	private IGenericClient setupClient(String serverBaseUrl) {
 		ctx.getRestfulClientFactory().setServerValidationMode(ServerValidationModeEnum.NEVER);
 		ctx.getRestfulClientFactory().setConnectTimeout(20 * 1000);
-		client = ctx.newRestfulGenericClient(serverBaseUrl);
-	}
-
-	private String getServerBaseUrl() {
-		String scheme = servletRequest.getScheme();
-		String serverName = servletRequest.getServerName();
-		int serverPort = servletRequest.getServerPort();
-		String contextPath = servletRequest.getServletContext().getContextPath();
-		return scheme + "://" + serverName + ":" + serverPort + contextPath;
-	}
-
-	private RequestDetails getRequestDetails() {
-		ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
-				.getRequestAttributes();
-		return (RequestDetails) requestAttributes.getAttribute("ca.uhn.fhir.rest.server.RestfulServer.REQUEST_DETAILS",
-				RequestAttributes.SCOPE_REQUEST);
+		return ctx.newRestfulGenericClient(serverBaseUrl);
 	}
 
 }
