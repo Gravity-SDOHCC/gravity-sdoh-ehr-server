@@ -465,7 +465,9 @@ public class StarterJpaConfig {
 		// SmartAuthInterceptor authorizationInterceptor = new SmartAuthInterceptor();
 		// fhirServer.registerInterceptor(authorizationInterceptor);
 
-		// Register PostTaskInterceptor
+		/**
+		 * Register PostTaskInterceptor
+		 */
 		PostTaskInterceptor postTaskInterceptor = new PostTaskInterceptor();
 		fhirServer.registerInterceptor(postTaskInterceptor);
 
