@@ -457,6 +457,18 @@ public class StarterJpaConfig {
 	private void registerCustomInterceptors(RestfulServer fhirServer, ApplicationContext theAppContext,
 			List<String> customInterceptorClasses) {
 
+		/*
+		 * Register Authorization interceptor
+		 */
+		// SmartAuthInterceptor authorizationInterceptor = new SmartAuthInterceptor();
+		// fhirServer.registerInterceptor(authorizationInterceptor);
+
+		/**
+		 * Register PostTaskInterceptor
+		 */
+		PostTaskInterceptor postTaskInterceptor = new PostTaskInterceptor();
+		fhirServer.registerInterceptor(postTaskInterceptor);
+
 		if (customInterceptorClasses == null) {
 			return;
 		}
