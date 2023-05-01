@@ -69,7 +69,7 @@ hapi:
     ### the deepest folder level will be used. E.g. - if you put file:/foo/bar/bazz as value then the files are resolved under /static/bazz/**
     #staticLocation: file:/foo/bar/bazz
     ### enable to set the Server URL
-    #    server_address: http://hapi.fhir.org/baseR4
+    server_address: http://localhost:8080/fhir
     #    defer_indexing_for_codesystems_of_size: 101
     #    install_transitive_ig_dependencies: true
     # implementationguides:
@@ -115,13 +115,13 @@ hapi:
     ##################################################
     # Allowed Bundle Types for persistence (defaults are: COLLECTION,DOCUMENT,MESSAGE)
     ##################################################
-    #    allowed_bundle_types: COLLECTION,DOCUMENT,MESSAGE,TRANSACTION,TRANSACTIONRESPONSE,BATCH,BATCHRESPONSE,HISTORY,SEARCHSET
+    allowed_bundle_types: COLLECTION,DOCUMENT,MESSAGE,TRANSACTION,TRANSACTIONRESPONSE,BATCH,BATCHRESPONSE,HISTORY,SEARCHSET
     allow_cascading_deletes: true
     #    allow_contains_searches: true
-    #    allow_external_references: true
+    allow_external_references: true
     #    allow_multiple_delete: true
-    #    allow_override_default_search_params: true
-    #    auto_create_placeholder_reference_targets: false
+    allow_override_default_search_params: true
+    auto_create_placeholder_reference_targets: true
     #    cr_enabled: true
     #    ips_enabled: false
     #    default_encoding: JSON
@@ -145,7 +145,7 @@ hapi:
     #    expunge_enabled: true
     #    client_id_strategy: ALPHANUMERIC
     #    fhirpath_interceptor_enabled: false
-    #    filter_search_enabled: true
+    filter_search_enabled: true
     #    graphql_enabled: true
     narrative_enabled: false
     #    mdm_enabled: true
