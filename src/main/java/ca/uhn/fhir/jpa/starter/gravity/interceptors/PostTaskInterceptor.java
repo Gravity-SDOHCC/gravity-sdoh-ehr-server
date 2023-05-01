@@ -8,10 +8,13 @@ import ca.uhn.fhir.rest.api.server.ResponseDetails;
 
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Task;
+import org.hl7.fhir.r4.model.ContactPoint.ContactPointSystem;
 
 import ca.uhn.fhir.rest.api.MethodOutcome;
 
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.ContactPoint;
+import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
@@ -47,19 +50,21 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 			return;
 		}
 		Task createdTask = (Task) theResource;
-
-		Reference ownerReference = createdTask.getOwner();
-		String ownerReferenceUrl = ownerReference.getReference();
-		String ownerServerBaseUrl = ownerReferenceUrl.substring(0, ownerReferenceUrl.indexOf("/Organization"));
 		thisServerBaseUrl = theRequestDetails.getFhirServerBase();
-		updateTaskReferences(createdTask, thisServerBaseUrl);
-		String recipientTaskId = sendTaskToReceiver(createdTask, ownerServerBaseUrl);
+		String ownerServerBaseUrl = getTaskOwnerServerBaseUrl(createdTask);
 
-		if (recipientTaskId != null) {
-			activeTasksMap.put(createdTask.getIdPart(), recipientTaskId);
-			taskIdsToUpdate.add(createdTask.getIdPart());
-			logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + createdTask.getIdPart()
-					+ " is linked to recipient task " + activeTasksMap.get(createdTask.getIdPart()));
+		if (ownerServerBaseUrl != null) {
+			updateTaskReferences(createdTask, thisServerBaseUrl);
+			String recipientTaskId = sendTaskToReceiver(createdTask, ownerServerBaseUrl);
+
+			if (recipientTaskId != null) {
+				activeTasksMap.put(createdTask.getIdPart(), recipientTaskId);
+				taskIdsToUpdate.add(createdTask.getIdPart());
+				logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + createdTask.getIdPart()
+						+ " is linked to recipient task " + activeTasksMap.get(createdTask.getIdPart()));
+			}
+		} else {
+			logger.warning("Cannot send task to Owner: the owner's sever base URL is unknown ");
 		}
 
 	}
@@ -73,30 +78,29 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 				if (task != null && task.getStatus() == Task.TaskStatus.REQUESTED) {
 					updateTaskStatus(ehrClient, task, "received");
 				} else {
-					String receiverRefUrl = task.getOwner().getReference();
-					String receiverUrl = "";
-					if (receiverRefUrl.startsWith("http")) {
-						receiverUrl = receiverRefUrl.substring(0, receiverRefUrl.indexOf("/Organization"));
+
+					String receiverUrl = getTaskOwnerServerBaseUrl(task);
+					if (receiverUrl != null) {
+						String updatedTaskId = activeTasksMap.get(task.getIdPart());
+						if (updatedTaskId == null) {
+							taskIdsToUpdate.remove(task.getIdPart());
+							continue;
+						}
+						Task updatedTask = fetchUpdatedTaskFromReceiverServer(receiverUrl, updatedTaskId);
+
+						if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
+								&& !updatedTask.getStatus().equals(task.getStatus())) {
+							String status = updatedTask.getStatus().toCode();
+							updateTaskStatus(ehrClient, task, status);
+							if (status == "cancelled" || status == "rejected" || status == "completed") {
+								taskIdsToUpdate.remove(task.getIdPart());
+								activeTasksMap.remove(task.getIdPart());
+							}
+						}
 					} else {
 						logger.warning(
 								"Cannot poll updates on task " + task.getIdPart() + ": The task owner base URL is unknown.");
 						continue;
-					}
-					String updatedTaskId = activeTasksMap.get(task.getIdPart());
-					if (updatedTaskId == null) {
-						taskIdsToUpdate.remove(task.getIdPart());
-						continue;
-					}
-					Task updatedTask = fetchUpdatedTaskFromReceiverServer(receiverUrl, updatedTaskId);
-
-					if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
-							&& !updatedTask.getStatus().equals(task.getStatus())) {
-						String status = updatedTask.getStatus().toCode();
-						updateTaskStatus(ehrClient, task, status);
-						if (status == "cancelled" || status == "rejected" || status == "completed") {
-							taskIdsToUpdate.remove(task.getIdPart());
-							activeTasksMap.remove(task.getIdPart());
-						}
 					}
 				}
 			}
@@ -163,6 +167,31 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 
 		Task task = client.read().resource(Task.class).withId(taskId).execute();
 		return task;
+	}
+
+	private Organization fetchOrganization(String serverUrl, String organizationId) {
+		IGenericClient client = setupClient(serverUrl);
+
+		Organization org = client.read().resource(Organization.class).withId(organizationId).execute();
+		return org;
+	}
+
+	private String getTaskOwnerServerBaseUrl(Task task) {
+		String ownerReference = task.getOwner().getReference();
+		String ownerId = ownerReference.substring(ownerReference.indexOf("/"));
+		// Assumption here is that the owner is an Organization instance
+		Organization owner = fetchOrganization(thisServerBaseUrl, ownerId);
+		List<ContactPoint> telecoms = owner.getContactFirstRep().getTelecom();
+		String ownerServerBaseUrl = null;
+		for (ContactPoint telecom : telecoms) {
+			if (telecom.hasSystem() && telecom.getSystem().equals(ContactPointSystem.URL)) {
+				ownerServerBaseUrl = telecom.getValue();
+				break;
+			}
+		}
+
+		return ownerServerBaseUrl;
+
 	}
 
 	private List<Task> fetchActiveTasksFromSelf(IGenericClient client) {
