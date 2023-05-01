@@ -87,15 +87,23 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 							continue;
 						}
 						Task updatedTask = fetchUpdatedTaskFromReceiverServer(receiverUrl, updatedTaskId);
-
-						if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
+						String status = task.getStatus().toCode();
+						// Checking if the ehr user has cancelled the initiated task, if so, cancel the
+						// receiver task as well.
+						if (updatedTask != null && status.equals("cancelled")) {
+							IGenericClient receiverClient = setupClient(receiverUrl);
+							updateTaskStatus(receiverClient, updatedTask, "cancelled");
+							// Now checking if the receiver task status has changed. If so, update the
+							// initiated task on this server.
+						} else if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
 								&& !updatedTask.getStatus().equals(task.getStatus())) {
-							String status = updatedTask.getStatus().toCode();
+							status = updatedTask.getStatus().toCode();
 							updateTaskStatus(ehrClient, task, status);
-							if (status == "cancelled" || status == "rejected" || status == "completed") {
-								taskIdsToUpdate.remove(task.getIdPart());
-								activeTasksMap.remove(task.getIdPart());
-							}
+						}
+
+						if (status == "cancelled" || status == "rejected" || status == "completed") {
+							taskIdsToUpdate.remove(task.getIdPart());
+							activeTasksMap.remove(task.getIdPart());
 						}
 					} else {
 						logger.warning(
