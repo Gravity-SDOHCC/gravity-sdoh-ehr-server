@@ -62,6 +62,9 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 				taskIdsToUpdate.add(createdTask.getIdPart());
 				logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + createdTask.getIdPart()
 						+ " is linked to recipient task " + activeTasksMap.get(createdTask.getIdPart()));
+			} else {
+				taskIdsToUpdate.add(createdTask.getIdPart());
+				logger.warning("Failed to send task to recipient server:  " + ownerServerBaseUrl);
 			}
 		} else {
 			logger.warning("Cannot send task to Owner: the owner's sever base URL is unknown ");
@@ -75,11 +78,24 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 		try {
 			List<Task> activeTasks = fetchActiveTasksFromSelf(ehrClient);
 			for (Task task : activeTasks) {
+				String receiverUrl = getTaskOwnerServerBaseUrl(task);
 				if (task != null && task.getStatus() == Task.TaskStatus.REQUESTED) {
-					updateTaskStatus(ehrClient, task, "received");
+					if (activeTasksMap.get(task.getIdPart()) != null) {
+						updateTaskStatus(ehrClient, task, "received");
+					} else {
+						if (receiverUrl != null) {
+							updateTaskReferences(task, thisServerBaseUrl);
+							String recipientTaskId = sendTaskToReceiver(task, receiverUrl);
+							if (recipientTaskId != null) {
+								activeTasksMap.put(task.getIdPart(), recipientTaskId);
+								logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + task.getIdPart()
+										+ " is linked to recipient task " + activeTasksMap.get(task.getIdPart()));
+							}
+						}
+					}
+
 				} else {
 
-					String receiverUrl = getTaskOwnerServerBaseUrl(task);
 					if (receiverUrl != null) {
 						String updatedTaskId = activeTasksMap.get(task.getIdPart());
 						if (updatedTaskId == null) {
