@@ -18,4 +18,10 @@ CREATE TABLE IF NOT EXISTS `Clients` (
   "timestamp" datetime DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS `ActiveTasks` (
+  "taskId" varchar PRIMARY KEY,
+  "externalTaskId" varchar DEFAULT NULL,
+  "timestamp" datetime DEFAULT CURRENT_TIMESTAMP
+);
+
 COMMIT;

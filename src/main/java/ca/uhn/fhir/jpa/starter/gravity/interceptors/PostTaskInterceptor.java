@@ -20,8 +20,12 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
+import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.jpa.starter.gravity.ServerLogger;
+import ca.uhn.fhir.jpa.starter.gravity.controllers.AuthorizationController;
+import ca.uhn.fhir.jpa.starter.gravity.models.ActiveTask;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -35,13 +39,17 @@ import java.util.stream.Collectors;
 
 @Service
 public class PostTaskInterceptor extends InterceptorAdapter {
+	@Autowired
+	AppProperties appProperties;
 	private static final Logger logger = ServerLogger.getLogger();
 
 	private final FhirContext ctx = FhirContext.forR4();;
-	private static List<String> taskIdsToUpdate = Collections.synchronizedList(new ArrayList<>());
+	// private static List<String> taskIdsToUpdate =
+	// Collections.synchronizedList(new ArrayList<>());
 
-	private static Map<String, String> activeTasksMap = Collections.synchronizedMap(new HashMap<String, String>());
-	private static String thisServerBaseUrl = "";
+	// private static Map<String, String> activeTasksMap =
+	// Collections.synchronizedMap(new HashMap<String, String>());
+	private static Map<String, String> activeTasksMap = AuthorizationController.getDB().getActiveTasks();
 
 	@Hook(Pointcut.STORAGE_PRECOMMIT_RESOURCE_CREATED)
 	public void handleTaskCreation(IBaseResource theResource, RequestDetails theRequestDetails,
@@ -50,21 +58,22 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 			return;
 		}
 		Task createdTask = (Task) theResource;
-		thisServerBaseUrl = theRequestDetails.getFhirServerBase();
 		String ownerServerBaseUrl = getTaskOwnerServerBaseUrl(createdTask);
 
 		if (ownerServerBaseUrl != null) {
-			updateTaskReferences(createdTask, thisServerBaseUrl);
+			updateTaskReferences(createdTask, appProperties.getServer_address());
 			String recipientTaskId = sendTaskToReceiver(createdTask, ownerServerBaseUrl);
-
-			if (recipientTaskId != null) {
-				activeTasksMap.put(createdTask.getIdPart(), recipientTaskId);
-				taskIdsToUpdate.add(createdTask.getIdPart());
-				logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + createdTask.getIdPart()
-						+ " is linked to recipient task " + activeTasksMap.get(createdTask.getIdPart()));
+			ActiveTask activeTask = new ActiveTask(createdTask.getIdPart(), recipientTaskId);
+			AuthorizationController.getDB().write(activeTask);
+			activeTasksMap = AuthorizationController.getDB().getActiveTasks();
+			if (recipientTaskId == null) {
+				logger.warning(
+						"Failed to send task " + activeTask.getTaskId() + " to recipient server:  " + ownerServerBaseUrl);
 			} else {
-				taskIdsToUpdate.add(createdTask.getIdPart());
-				logger.warning("Failed to send task to recipient server:  " + ownerServerBaseUrl);
+				logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task "
+						+ activeTask.getTaskId()
+						+ " is linked to recipient task " +
+						activeTask.getExternalTaskId());
 			}
 		} else {
 			logger.warning("Cannot send task to Owner: the owner's sever base URL is unknown ");
@@ -74,20 +83,22 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 
 	@Scheduled(fixedRate = 10000)
 	public void pollTaskUpdates() {
-		IGenericClient ehrClient = setupClient(thisServerBaseUrl);
+		IGenericClient ehrClient = setupClient(appProperties.getServer_address());
 		try {
 			List<Task> activeTasks = fetchActiveTasksFromSelf(ehrClient);
 			for (Task task : activeTasks) {
 				String receiverUrl = getTaskOwnerServerBaseUrl(task);
 				if (task != null && task.getStatus() == Task.TaskStatus.REQUESTED) {
 					if (activeTasksMap.get(task.getIdPart()) != null) {
-						updateTaskStatus(ehrClient, task, "received");
+						updateTaskStatus(ehrClient, task, task, "received");
 					} else {
 						if (receiverUrl != null) {
-							updateTaskReferences(task, thisServerBaseUrl);
+							updateTaskReferences(task, appProperties.getServer_address());
 							String recipientTaskId = sendTaskToReceiver(task, receiverUrl);
 							if (recipientTaskId != null) {
-								activeTasksMap.put(task.getIdPart(), recipientTaskId);
+								ActiveTask activeTask = new ActiveTask(task.getIdPart(), recipientTaskId);
+								AuthorizationController.getDB().updateActiveTask(activeTask);
+								activeTasksMap = AuthorizationController.getDB().getActiveTasks();
 								logger.info("Active TASKS: " + activeTasksMap.size() + ". Active sever task " + task.getIdPart()
 										+ " is linked to recipient task " + activeTasksMap.get(task.getIdPart()));
 							}
@@ -99,7 +110,8 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 					if (receiverUrl != null) {
 						String updatedTaskId = activeTasksMap.get(task.getIdPart());
 						if (updatedTaskId == null) {
-							taskIdsToUpdate.remove(task.getIdPart());
+							AuthorizationController.getDB().deleteActiveTask(task.getIdPart());
+							activeTasksMap = AuthorizationController.getDB().getActiveTasks();
 							continue;
 						}
 						Task updatedTask = fetchUpdatedTaskFromReceiverServer(receiverUrl, updatedTaskId);
@@ -108,18 +120,18 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 						// receiver task as well.
 						if (updatedTask != null && status.equals("cancelled")) {
 							IGenericClient receiverClient = setupClient(receiverUrl);
-							updateTaskStatus(receiverClient, updatedTask, "cancelled");
+							updateTaskStatus(receiverClient, task, updatedTask, "cancelled");
 							// Now checking if the receiver task status has changed. If so, update the
 							// initiated task on this server.
 						} else if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
 								&& !updatedTask.getStatus().equals(task.getStatus())) {
 							status = updatedTask.getStatus().toCode();
-							updateTaskStatus(ehrClient, task, status);
+							updateTaskStatus(ehrClient, updatedTask, task, status);
 						}
 
 						if (status == "cancelled" || status == "rejected" || status == "completed") {
-							taskIdsToUpdate.remove(task.getIdPart());
-							activeTasksMap.remove(task.getIdPart());
+							AuthorizationController.getDB().deleteActiveTask(task.getIdPart());
+							activeTasksMap = AuthorizationController.getDB().getActiveTasks();
 						}
 					} else {
 						logger.warning(
@@ -152,22 +164,25 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 		}
 	}
 
-	private boolean updateTaskStatus(IGenericClient client, Task task, String newStatus) {
+	private boolean updateTaskStatus(IGenericClient client, Task updatedTask, Task taskToUpdate, String newStatus) {
 		try {
-			logger.info("Updating task " + task.getIdPart() + " status to  " + newStatus);
+			logger.info("Updating task " + taskToUpdate.getIdPart() + " status to  " + newStatus);
 			// Update the status and persist the Task
-			task.setStatus(Task.TaskStatus.fromCode(newStatus));
-			Task newUpdatedTask = (Task) client.update().resource(task).execute().getResource();
+			taskToUpdate.setStatus(Task.TaskStatus.fromCode(newStatus));
+			taskToUpdate.setStatusReason(updatedTask.getStatusReason());
+			taskToUpdate.setOutput(updatedTask.getOutput());
+			Task newUpdatedTask = (Task) client.update().resource(taskToUpdate).execute().getResource();
 			if (newUpdatedTask != null) {
 				logger.info(
 						"Updated Task: " + newUpdatedTask.getIdPart() + " with status: " + newUpdatedTask.getStatus());
 				return true;
 			} else {
-				logger.severe("Failed to update Task: " + task.getIdPart() + " status.");
+				logger.severe("Failed to update Task: " + taskToUpdate.getIdPart() + " status.");
 			}
 		} catch (Exception e) {
 			logger.severe(
-					"Failed to update task with id " + task.getIdPart() + " to " + newStatus + ": " + e.getMessage());
+					"Failed to update task with id " + taskToUpdate.getIdPart() + " to " + newStatus + ": "
+							+ e.getMessage());
 		}
 		return false;
 	}
@@ -204,7 +219,7 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 		String ownerReference = task.getOwner().getReference();
 		String ownerId = ownerReference.substring(ownerReference.indexOf("/"));
 		// Assumption here is that the owner is an Organization instance
-		Organization owner = fetchOrganization(thisServerBaseUrl, ownerId);
+		Organization owner = fetchOrganization(appProperties.getServer_address(), ownerId);
 		List<ContactPoint> telecoms = owner.getContactFirstRep().getTelecom();
 		String ownerServerBaseUrl = null;
 		for (ContactPoint telecom : telecoms) {
@@ -219,8 +234,10 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 	}
 
 	private List<Task> fetchActiveTasksFromSelf(IGenericClient client) {
-		logger.info("CHECKING ACTIVE TASKS: " + taskIdsToUpdate.size());
-		if (taskIdsToUpdate.size() == 0) {
+		List<String> taskIdsToUpdate = new ArrayList<>(activeTasksMap.keySet());
+		Integer size = taskIdsToUpdate.size();
+		logger.info("PostTaskInterceptor::fetchActiveTasksFromSelf: CHECKING ACTIVE TASKS: " + size);
+		if (size == 0) {
 			return new ArrayList<Task>();
 		}
 		// Build a comma-separated string of IDs
