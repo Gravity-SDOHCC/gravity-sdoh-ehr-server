@@ -299,12 +299,12 @@ public class Database {
 		logger.info("Database::delete(ActiveTasks " + taskId + ")");
 		Boolean result = false;
 		if (taskId != null) {
-			String sql = "DELETE FROM ActiveTasks WHERE taskId = " + taskId + ";";
+			String sql = "DELETE FROM ActiveTasks WHERE taskId = ?;";
 			try (Connection connection = getConnection();
 					PreparedStatement stmt = connection.prepareStatement(sql)) {
 				stmt.setString(1, taskId);
 				logger.fine("read query: " + stmt.toString());
-				stmt.executeQuery();
+				stmt.executeUpdate();
 
 				result = true;
 			} catch (SQLException e) {
