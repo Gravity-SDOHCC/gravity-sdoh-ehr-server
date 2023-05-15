@@ -15,6 +15,7 @@ import ca.uhn.fhir.rest.api.MethodOutcome;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ContactPoint;
 import org.hl7.fhir.r4.model.Organization;
+import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.Reference;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
@@ -130,6 +131,18 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 						} else if (updatedTask != null && updatedTask.getStatus() != Task.TaskStatus.REQUESTED
 								&& !updatedTask.getStatus().equals(task.getStatus())) {
 							status = updatedTask.getStatus().toCode();
+							if (status.equals("completed")) {
+								String procedureRef = ((Reference) updatedTask.getOutputFirstRep().getValue()).getReference();
+								if (procedureRef != null) {
+									String procedureId = procedureRef.substring(procedureRef.indexOf("/"));
+									logger.info("Task is completed, retrieving the procedure " + procedureId
+											+ " from external server " + receiverUrl);
+									IGenericClient Client = setupClient(receiverUrl);
+									Procedure procedure = Client.read().resource(Procedure.class).withId(procedureId).execute();
+									logger.info("Procedure retrieved successfully, now saving...");
+									ehrClient.update().resource(procedure).execute();
+								}
+							}
 							updateTaskStatus(ehrClient, updatedTask, task, status);
 						}
 
