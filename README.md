@@ -24,6 +24,15 @@ cd gravity-sdoh-ehr-server
 
 ## Running locally
 
+Before running the server locally, ensure that the server address is set to localhost in the configuration (`application.yaml`).
+
+```bash
+server_address: http://localhost:8080/fhir
+```
+
+Adjust the port number depending on the port you run this server on.
+>> Forproduction, the server address should be set the the hosted URL <https://gravity-ehr-server.herokuapp.com/fhir>.
+
 The easiest way to run this server entirely depends on your environment requirements. At least, the following 4 ways are supported:
 
 ### Using jetty
