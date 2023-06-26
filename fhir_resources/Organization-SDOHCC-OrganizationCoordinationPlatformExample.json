@@ -1,1 +1,36 @@
-{"resourceType":"Organization","id":"SDOHCC-OrganizationCoordinationPlatformExample","meta":{"profile":["http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization"]},"text":{"status":"generated","div":"<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Organization</b><a name=\"SDOHCC-OrganizationCoordinationPlatformExample\"> </a></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource Organization &quot;SDOHCC-OrganizationCoordinationPlatformExample&quot; </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"http://hl7.org/fhir/us/core/STU3.1.1/StructureDefinition-us-core-organization.html\">US Core Organization Profile</a></p></div><p><b>active</b>: true</p><p><b>name</b>: ABC Coordination Platform</p><p><b>address</b>: 198th St, Western, IL 62223</p></div>"},"active":true,"name":"ABC Coordination Platform","address":[{"text":"198th St, Western, IL 62223","line":["198th Street,"],"city":"Western","state":"IL","postalCode":"62223"}]}
+{
+  "resourceType": "Organization",
+  "id": "SDOHCC-OrganizationCoordinationPlatformExample",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization"
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Organization</b><a name=\"SDOHCC-OrganizationCoordinationPlatformExample\"> </a></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource Organization &quot;SDOHCC-OrganizationCoordinationPlatformExample&quot; </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"http://hl7.org/fhir/us/core/STU3.1.1/StructureDefinition-us-core-organization.html\">US Core Organization Profile</a></p></div><p><b>active</b>: true</p><p><b>name</b>: ABC Coordination Platform</p><p><b>address</b>: 198th St, Western, IL 62223</p></div>"
+  },
+  "active": true,
+  "name": "ABC Coordination Platform",
+  "address": [
+    {
+      "text": "198th St, Western, IL 62223",
+      "line": [
+        "198th Street,"
+      ],
+      "city": "Western",
+      "state": "IL",
+      "postalCode": "62223"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "url",
+          "value": "https://gravity-cp-server.herokuapp.com/fhir"
+        }
+      ]
+    }
+  ]
+}
