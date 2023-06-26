@@ -108,6 +108,7 @@ hapi:
       - StructureDefinition
       - StructureMap
       - Endpoint
+      - Coverage
       # - CapabilityStatement
       # - ImplementationGuide
 
