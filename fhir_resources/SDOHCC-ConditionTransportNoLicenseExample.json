@@ -2,8 +2,6 @@
     "resourceType": "Condition",
     "id": "SDOHCC-ConditionTransportNoLicenseExample",
     "meta": {
-        "versionId": "5",
-        "lastUpdated": "2023-06-16TT18:58:01.507+00:00",
         "source": "#nUKafeh0gl4Fksae",
         "profile": [
             "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-Condition"
