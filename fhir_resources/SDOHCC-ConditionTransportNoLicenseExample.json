@@ -53,8 +53,8 @@
         "coding": [
             {
                 "system": "http://snomed.info/sct",
-                "code": "551721000124101",
-                "display": "Transportation insecurity due to no drivers license"
+                "code": "551731000124103",
+                "display": "Inability to access health care due to transportation insecurity (finding)"
             },
             {
                 "system": "http://hl7.org/fhir/sid/icd-10-cm",
