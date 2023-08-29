@@ -1,6 +1,6 @@
 require 'fhir_client'
 
-path = File.join(Dir.pwd, 'fhir_resources')
+path = File.join(Dir.pwd, 'src', 'main', 'resources', 'fhir_resources')
 files = Dir.glob(path + "/*.json")
 client = FHIR::Client.new('https://gravity-ehr-server.herokuapp.com/fhir')
 # client = FHIR::Client.new('http://localhost:8080/fhir')
