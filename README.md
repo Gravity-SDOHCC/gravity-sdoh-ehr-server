@@ -1,11 +1,8 @@
 # Gravity SDOH EHR Reference Implementation Server
 
-Reference Implementation EHR HAPI FHIR based server for the Gravity use cases specified at https://confluence.hl7.org/display/FHIR/2021-01+Gravity+SDOH+Clinical+Care+Track. It is based on the [HAPI FHIR JPA Server](https://github.com/hapifhir/hapi-fhir-jpaserver-starter).
-
-The server is hosted at <https://gravity-ehr-server.herokuapp.com/fhir>
-
->> This hosted server is usually available for testing events. There is a high chance it will be unavailable any other time to reduce costs.
-
+Reference Implementation EHR HAPI FHIR based server for the [Gravity SDOHCC
+Implementation
+Guide](http://hl7.org/fhir/us/sdoh-clinicalcare/CapabilityStatement-SDOHCC-CoordinationPlatform.html)
 
 ## Prerequisites
 
@@ -121,9 +118,18 @@ This server is automatically deployed to heroku with any push to the `master` br
 
 ## Using this Server
 
-This server currently supports unauthenticated access. You can obtain the supported endpoints and search parameters for each endpoint by querying the metadata `[base_url]/metadata` (e.g. <http://localhost:8080/fhir/metadata>).
+This server currently supports unauthenticated access. You can obtain the
+supported endpoints and search parameters for each endpoint by querying the
+metadata `[base_url]/metadata` (e.g. <http://localhost:8080/fhir/metadata>).
 
-There is a ruby script `upload.rb` provided to load the server with sample data and IG resouce definitions (SearchParameter,ValueSet, CodeSystem, etc. ). The sample data are in the `fhir_resource` folder. This folder should be updated as the IG changes to be conformant.
+The server automatically loads all resources located in the
+`src/main/resources/fhir_resources` folder when it starts. There is also a ruby
+script `upload.rb` which can be run to load the server all of the resources from
+that folder.
+
+See [the usage
+documentation](https://github.com/Gravity-SDOHCC/sdoh_referral_source_client/blob/master/docs/usage.md)
+for instructions on using the whole reference implementations.
 
 ## Configurations
 
@@ -187,3 +193,22 @@ In this use case, the task recipient has a FHIR-enable application but not a FHI
 ## Contributions
 
 Pull requests are welcome. Any questions, suggestions, or issues should be submitted via the [GitHub issue tracker](https://github.com/Gravity-SDOHCC/gravity-sdoh-ehr-server/issues)
+
+## License
+Copyright 2023 The MITRE Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+```
+http://www.apache.org/licenses/LICENSE-2.0
+```
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+
+## Trademark Notice
+
+HL7, FHIR and the FHIR [FLAME DESIGN] are the registered trademarks of Health
+Level Seven International and their use does not constitute endorsement by HL7.
