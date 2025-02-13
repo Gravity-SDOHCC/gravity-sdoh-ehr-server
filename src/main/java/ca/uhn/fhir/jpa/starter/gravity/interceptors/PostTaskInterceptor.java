@@ -233,17 +233,26 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 	}
 
 	private String getTaskOwnerServerBaseUrl(Task task) {
-		String ownerReference = task.getOwner().getReference();
-		String ownerId = ownerReference.substring(ownerReference.indexOf("/"));
-		// Assumption here is that the owner is an Organization instance
-		Organization owner = fetchOrganization(thisServerBaseUrl, ownerId);
-		List<ContactPoint> telecoms = owner.getContactFirstRep().getTelecom();
+		if (task.getOwner() == null || task.getOwner().getReference() == null) {
+			return null;
+		}
+
+		String[] ownerReferenceParts = task.getOwner().getReference().split("/");
+		String ownerType = ownerReferenceParts[0];
+		String ownerId = ownerReferenceParts[1];
 		String ownerServerBaseUrl = null;
-		for (ContactPoint telecom : telecoms) {
-			if (telecom.hasSystem() && telecom.getSystem().equals(ContactPointSystem.URL)) {
-				ownerServerBaseUrl = telecom.getValue();
-				break;
+
+
+		if (ownerType.equals("Organization")) {
+			Organization owner = fetchOrganization(thisServerBaseUrl, ownerId);
+			List<ContactPoint> telecoms = owner.getContactFirstRep().getTelecom();
+			for (ContactPoint telecom : telecoms) {
+				if (telecom.hasSystem() && telecom.getSystem().equals(ContactPointSystem.URL)) {
+					ownerServerBaseUrl = telecom.getValue();
+					break;
+				}
 			}
+				
 		}
 
 		return ownerServerBaseUrl;
