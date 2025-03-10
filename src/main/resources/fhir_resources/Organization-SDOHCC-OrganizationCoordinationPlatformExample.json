@@ -28,7 +28,7 @@
       "telecom": [
         {
           "system": "url",
-          "value": "https://gravity-cp-server.herokuapp.com/fhir"
+          "value": "https://sdoh-cp-server.victoriousbay-86ce63e0.southcentralus.azurecontainerapps.io/fhir"
         }
       ]
     }
