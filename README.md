@@ -1,5 +1,7 @@
 # Gravity SDOH EHR Reference Implementation Server
 
+[![Build status](https://dev.azure.com/lantanagroup/CMS/_apis/build/status/SDOH/SDOH%20EHR%20Server)](https://dev.azure.com/lantanagroup/CMS/_build/latest?definitionId=169)
+
 Reference Implementation EHR HAPI FHIR based server for the [Gravity SDOHCC
 Implementation
 Guide](http://hl7.org/fhir/us/sdoh-clinicalcare/CapabilityStatement-SDOHCC-CoordinationPlatform.html)
