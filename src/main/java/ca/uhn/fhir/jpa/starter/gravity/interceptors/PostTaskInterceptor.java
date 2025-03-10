@@ -213,7 +213,7 @@ public class PostTaskInterceptor extends InterceptorAdapter {
 			Task t = (Task) outcome.getResource();
 			return t.getIdElement().getIdPart();
 		} catch (Exception e) {
-			logger.severe("Failed to send Task to receiver: " + e.getMessage());
+			logger.severe("Failed to send Task to receiver "+receiverBaseUrl+": " + e.getMessage());
 		}
 		return null;
 	}
