@@ -23,73 +23,74 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class DataInitializer {
 
-    private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
+	private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
 
-    @Autowired
-    private FhirContext fhirContext;
+	@Autowired
+	private FhirContext fhirContext;
 
-    @Autowired
-    private DaoRegistry daoRegistry;
+	@Autowired
+	private DaoRegistry daoRegistry;
 
-    @Autowired
-    private AppProperties appProperties;
+	@Autowired
+	private AppProperties appProperties;
 
-    @Autowired
-    private ResourceLoader resourceLoader;
+	@Autowired
+	private ResourceLoader resourceLoader;
 
-    @Autowired
-    private JpaStorageSettings storageSettings;
+	@Autowired
+	private JpaStorageSettings storageSettings;
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void initializeData() {
+	@EventListener(ApplicationReadyEvent.class)
+	public void initializeData() {
 
-        if (appProperties.getInitialData() == null
-                || appProperties.getInitialData().isEmpty()) {
-            return;
-        }
+		if (appProperties.getInitialData() == null
+				|| appProperties.getInitialData().isEmpty()) {
+			return;
+		}
 
-        logger.info("Initializing data");
+		logger.info("Initializing data");
 
-        // Disable referential integrity checks so that resources can be loaded in any order
-        storageSettings.setEnforceReferentialIntegrityOnWrite(false);
+		// Disable referential integrity checks so that resources can be loaded in any order
+		storageSettings.setEnforceReferentialIntegrityOnWrite(false);
 
-        for (String directoryPath : appProperties.getInitialData()) {
-            logger.info("Loading resources from directory: " + directoryPath);
+		for (String directoryPath : appProperties.getInitialData()) {
+			logger.info("Loading resources from directory: " + directoryPath);
 
-            Resource[] resources = null;
+			Resource[] resources = null;
 
-            try {
-                resources = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
-                        .getResources("classpath:" + directoryPath + "/**/*.json");
-            } catch (Exception e) {
-                logger.error("Error loading resources from directory: " + directoryPath, e);
-                continue;
-            }
+			try {
+				resources = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
+						.getResources("classpath:" + directoryPath + "/**/*.json");
+			} catch (Exception e) {
+				logger.error("Error loading resources from directory: " + directoryPath, e);
+				continue;
+			}
 
-            for (Resource resource : resources) {
-                try {
-                    String resourceText = new String(
-                            FileCopyUtils.copyToByteArray(resource.getInputStream()), StandardCharsets.UTF_8);
+			for (Resource resource : resources) {
+				try {
+					String resourceText = new String(
+							FileCopyUtils.copyToByteArray(resource.getInputStream()), StandardCharsets.UTF_8);
 
-                    IBaseResource fhirResource = fhirContext.newJsonParser().parseResource(resourceText);
+					IBaseResource fhirResource = fhirContext.newJsonParser().parseResource(resourceText);
 
-                    // IMPORTANT: the HAPI parser appends version numbers to this ID when parsing from file,
-                    // but not when parsing from the body of an HTTP request, even when the content of both
-                    // is exactly the same.
-                    // That version number causes pain here, so remove it.
-                    fhirResource.setId(fhirResource.getIdElement().getResourceType() + "/" + fhirResource.getIdElement().getIdPart());
+					// IMPORTANT: the HAPI parser appends version numbers to this ID when parsing from file,
+					// but not when parsing from the body of an HTTP request, even when the content of both
+					// is exactly the same.
+					// That version number causes pain here, so remove it.
+					fhirResource.setId(fhirResource.getIdElement().getResourceType() + "/"
+							+ fhirResource.getIdElement().getIdPart());
 
-                    IFhirResourceDao<IBaseResource> dao = daoRegistry.getResourceDao(fhirResource);
-                    dao.update(fhirResource, new SystemRequestDetails());
-                    logger.info("Loaded resource: " + resource.getFilename());
-                } catch (Exception e) {
-                    logger.error("Error loading resource: " + resource.getFilename(), e);
-                }
-            }
-        }
+					IFhirResourceDao<IBaseResource> dao = daoRegistry.getResourceDao(fhirResource);
+					dao.update(fhirResource, new SystemRequestDetails());
+					logger.info("Loaded resource: " + resource.getFilename());
+				} catch (Exception e) {
+					logger.error("Error loading resource: " + resource.getFilename(), e);
+				}
+			}
+		}
 
-        // Re-enable referential integrity checks if they were previously enabled
-        storageSettings.setEnforceReferentialIntegrityOnWrite(
-                appProperties.getEnforce_referential_integrity_on_write());
-    }
+		// Re-enable referential integrity checks if they were previously enabled
+		storageSettings.setEnforceReferentialIntegrityOnWrite(
+				appProperties.getEnforce_referential_integrity_on_write());
+	}
 }

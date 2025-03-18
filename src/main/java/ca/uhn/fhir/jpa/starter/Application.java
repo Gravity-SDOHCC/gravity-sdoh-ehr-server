@@ -70,6 +70,7 @@ public class Application extends SpringBootServletInitializer {
 
 		return servletRegistrationBean;
 	}
+
 	@Bean
 	public ServletRegistrationBean<DispatcherServlet> oauthServletRegistration(DispatcherServlet dispatcherServlet) {
 		dispatcherServlet.setContextClass(AnnotationConfigWebApplicationContext.class);

@@ -218,9 +218,11 @@ public class AppProperties {
 	public String getAdmin_token() {
 		return admin_token;
 	}
+
 	public void setAdmin_token(String admin_token) {
 		this.admin_token = admin_token;
 	}
+
 	public Subscription getSubscription() {
 		return subscription;
 	}

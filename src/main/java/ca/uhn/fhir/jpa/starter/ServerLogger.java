@@ -12,45 +12,45 @@ import java.util.logging.SimpleFormatter;
  */
 public class ServerLogger {
 
-  private static String LOGFILE = "server.log"; // name of the log file
+	private static String LOGFILE = "server.log"; // name of the log file
 
-  private ServerLogger() { // Private constructor, throwing an IllegalStateException when it's called by
-                           // mistake
-    throw new IllegalStateException("Utility class");
-  }
+	private ServerLogger() { // Private constructor, throwing an IllegalStateException when it's called by
+		// mistake
+		throw new IllegalStateException("Utility class");
+	}
 
-  // Get the logger instance
-  public static Logger getLogger() {
-    return LoggerHolder.INSTANCE;
-  }
+	// Get the logger instance
+	public static Logger getLogger() {
+		return LoggerHolder.INSTANCE;
+	}
 
-  private static class LoggerHolder {
-    private static final Logger INSTANCE = initLogger(); // Instance of the Logger created when calling initLogger()
+	private static class LoggerHolder {
+		private static final Logger INSTANCE = initLogger(); // Instance of the Logger created when calling initLogger()
 
-    private static Logger initLogger() {
-      Logger logger = Logger.getLogger("Server");
+		private static Logger initLogger() {
+			Logger logger = Logger.getLogger("Server");
 
-      try {
-        FileHandler fh = new FileHandler(LOGFILE);
-        SimpleFormatter formatter = new SimpleFormatter();
-        fh.setFormatter(formatter); // Apply the formatter to the handler
-        logger.addHandler(fh); // Add the file handler to the Logger
-        logger.setLevel(Level.FINEST);
+			try {
+				FileHandler fh = new FileHandler(LOGFILE);
+				SimpleFormatter formatter = new SimpleFormatter();
+				fh.setFormatter(formatter); // Apply the formatter to the handler
+				logger.addHandler(fh); // Add the file handler to the Logger
+				logger.setLevel(Level.FINEST);
 
-      } catch (SecurityException e) {
-        logger.log(Level.SEVERE,
-            "ServerLogger::ServerLogger:SecurityException(SecurityException creating file handler. Logging will not go to file)",
-            e);
-      } catch (IOException e) {
-        logger.log(Level.SEVERE, "ServerLogger::ServerLogger:IOException", e);
-      }
+			} catch (SecurityException e) {
+				logger.log(
+						Level.SEVERE,
+						"ServerLogger::ServerLogger:SecurityException(SecurityException creating file handler. Logging will not go to file)",
+						e);
+			} catch (IOException e) {
+				logger.log(Level.SEVERE, "ServerLogger::ServerLogger:IOException", e);
+			}
 
-      return logger;
-    }
-  }
+			return logger;
+		}
+	}
 
-  public static String getLogPath() {
-    return LOGFILE;
-  }
-
+	public static String getLogPath() {
+		return LOGFILE;
+	}
 }

@@ -1,9 +1,5 @@
 package ca.uhn.fhir.jpa.starter.authorization;
 
-import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import ca.uhn.fhir.jpa.starter.ServerLogger;
 import ca.uhn.fhir.jpa.starter.gravity.models.ActiveTask;
 
@@ -14,8 +10,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.*;
 
 public class Database {
 
@@ -41,7 +40,9 @@ public class Database {
 	private String jdbcString;
 
 	public enum Table {
-		CLIENTS("Clients"), USERS("Users"), ACTIVETASKS("ActiveTasks");
+		CLIENTS("Clients"),
+		USERS("Users"),
+		ACTIVETASKS("ActiveTasks");
 
 		private final String value;
 
@@ -69,7 +70,8 @@ public class Database {
 		logger.info("JDBC: " + jdbcString);
 
 		try (Connection connection = getConnection()) {
-			String sql = new String(Files.readAllBytes(Paths.get(CREATE_SQL_FILE).toAbsolutePath()));
+			String sql =
+					new String(Files.readAllBytes(Paths.get(CREATE_SQL_FILE).toAbsolutePath()));
 			logger.info(sql);
 			connection.prepareStatement(sql.replace("\"", "")).execute();
 
@@ -113,11 +115,13 @@ public class Database {
 				if (outputHtml) {
 					String columnName = metaData.getColumnName(i);
 					if (columnName.contains("ID")) {
-						strBuilder.append("<th><div style='width: 300px;'")
+						strBuilder
+								.append("<th><div style='width: 300px;'")
 								.append(metaData.getColumnName(i))
 								.append("</div></th>");
 					} else {
-						strBuilder.append("<th>")
+						strBuilder
+								.append("<th>")
 								.append(metaData.getColumnName(i))
 								.append("</th>");
 					}
@@ -189,8 +193,8 @@ public class Database {
 			try (Connection connection = getConnection()) {
 				String sql = "SELECT TOP 1 provider_id, username, password, timestamp, refresh_token FROM Users WHERE "
 						+ generateClause(constraintParams, WHERE_CONCAT) + " ORDER BY timestamp DESC;";
-				PreparedStatement stmt = generateStatement(sql, Collections.singletonList(constraintParams),
-						connection);
+				PreparedStatement stmt =
+						generateStatement(sql, Collections.singletonList(constraintParams), connection);
 				if (stmt == null) {
 					logger.severe("Database::stmt was null");
 					return result;
@@ -237,7 +241,8 @@ public class Database {
 		logger.info("Database::read(Users " + clientId + ")");
 		Client result = null;
 		if (clientId != null) {
-			String sql = "SELECT TOP 1 id, secret, redirect, timestamp FROM Clients WHERE id = ? ORDER BY timestamp DESC;";
+			String sql =
+					"SELECT TOP 1 id, secret, redirect, timestamp FROM Clients WHERE id = ? ORDER BY timestamp DESC;";
 			try (Connection connection = getConnection();
 					PreparedStatement stmt = connection.prepareStatement(sql)) {
 				stmt.setString(1, clientId);
@@ -324,8 +329,7 @@ public class Database {
 		if (table != null && map != null) {
 			try (Connection connection = getConnection()) {
 				String valueClause = "";
-				for (int i = 0; i < map.values().size() - 1; i++)
-					valueClause += "?,";
+				for (int i = 0; i < map.values().size() - 1; i++) valueClause += "?,";
 				valueClause += "?";
 
 				String sql = "INSERT INTO " + table.value() + " (" + setColumns(map.keySet()) + ") VALUES ("
@@ -417,12 +421,14 @@ public class Database {
 	}
 
 	public boolean updateActiveTask(ActiveTask activeTask) {
-		return this.update(Table.ACTIVETASKS, Collections.singletonMap("taskId", activeTask.getTaskId()),
-				activeTask.toMap());
+		return this.update(
+				Table.ACTIVETASKS, Collections.singletonMap("taskId", activeTask.getTaskId()), activeTask.toMap());
 	}
 
 	public boolean setRefreshTokenId(String clientId, String jwtId) {
-		return this.update(Table.CLIENTS, Collections.singletonMap("id", clientId),
+		return this.update(
+				Table.CLIENTS,
+				Collections.singletonMap("id", clientId),
 				Collections.singletonMap("refresh_token", jwtId));
 	}
 
@@ -443,8 +449,8 @@ public class Database {
 		int numValuesNeeded = (int) sql.chars().filter(ch -> ch == '?').count();
 		int numValues = maps.stream().reduce(0, (subtotal, element) -> subtotal + element.size(), Integer::sum);
 		if (numValues != numValuesNeeded) {
-			logger.fine("Database::generateStatement:Value mismatch. Need " + numValuesNeeded
-					+ " values but received " + numValues);
+			logger.fine("Database::generateStatement:Value mismatch. Need " + numValuesNeeded + " values but received "
+					+ numValues);
 			return null;
 		}
 
@@ -453,18 +459,14 @@ public class Database {
 		for (Map<String, Object> map : maps) {
 			for (Object value : map.values()) {
 				String valueStr;
-				if (value instanceof String)
-					valueStr = (String) value;
-				else if (value == null)
-					valueStr = "null";
-				else
-					valueStr = value.toString();
+				if (value instanceof String) valueStr = (String) value;
+				else if (value == null) valueStr = "null";
+				else valueStr = value.toString();
 				stmt.setString(valueIndex, valueStr);
 				valueIndex++;
 			}
 		}
 		return stmt;
-
 	}
 
 	/**
@@ -479,12 +481,11 @@ public class Database {
 	private String generateClause(Map<String, Object> map, String concatonator) {
 		String column;
 		String sqlStr = "";
-		for (Iterator<String> iterator = map.keySet().iterator(); iterator.hasNext();) {
+		for (Iterator<String> iterator = map.keySet().iterator(); iterator.hasNext(); ) {
 			column = iterator.next();
 			sqlStr += column + " = ?";
 
-			if (iterator.hasNext())
-				sqlStr += concatonator;
+			if (iterator.hasNext()) sqlStr += concatonator;
 		}
 
 		return sqlStr;
@@ -497,13 +498,12 @@ public class Database {
 	 * @return a string of each key concatenated by ", "
 	 */
 	private String setColumns(Set<String> keys) {
-		Optional<String> reducedArr = Arrays.stream(keys.toArray(new String[0]))
-				.reduce((str1, str2) -> str1 + ", " + str2);
+		Optional<String> reducedArr =
+				Arrays.stream(keys.toArray(new String[0])).reduce((str1, str2) -> str1 + ", " + str2);
 		if (reducedArr.isPresent()) {
 			return reducedArr.get();
 		} else {
 			return null;
 		}
 	}
-
 }
