@@ -32,7 +32,8 @@ public class Loader {
   @Autowired
   private ApplicationContext context;
 
-  @EventListener(ApplicationReadyEvent.class)
+  // Using new loader DataInitializer
+  //@EventListener(ApplicationReadyEvent.class)
   public void loadResources() throws Exception {
     Map<String, IFhirResourceDao> resourceDAOs = context.getBeansOfType(IFhirResourceDao.class);
     IParser parser = FhirContext.forR4().newJsonParser();

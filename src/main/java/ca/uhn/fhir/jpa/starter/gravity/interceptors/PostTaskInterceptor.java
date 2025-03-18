@@ -1,6 +1,6 @@
 package ca.uhn.fhir.jpa.starter.gravity.interceptors;
 
-import ca.uhn.fhir.rest.server.interceptor.InterceptorAdapter;
+import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Pointcut;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
@@ -22,13 +22,12 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import ca.uhn.fhir.jpa.starter.AppProperties;
-import ca.uhn.fhir.jpa.starter.gravity.ServerLogger;
-import ca.uhn.fhir.jpa.starter.gravity.controllers.AuthorizationController;
+import ca.uhn.fhir.jpa.starter.ServerLogger;
+import ca.uhn.fhir.jpa.starter.authorization.AuthorizationController;
 import ca.uhn.fhir.jpa.starter.gravity.models.ActiveTask;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,8 +37,8 @@ import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-@Service
-public class PostTaskInterceptor extends InterceptorAdapter {
+@Interceptor
+public class PostTaskInterceptor {
 	@Autowired
 	AppProperties appProperties;
 	private static final Logger logger = ServerLogger.getLogger();

@@ -4,6 +4,8 @@ Reference Implementation EHR HAPI FHIR based server for the [Gravity SDOHCC
 Implementation
 Guide](http://hl7.org/fhir/us/sdoh-clinicalcare/CapabilityStatement-SDOHCC-CoordinationPlatform.html)
 
+This server is currently hosted at https://sdoh-ehr-server.victoriousbay-86ce63e0.southcentralus.azurecontainerapps.io
+
 ## Prerequisites
 
 - Java JDK 17 +
@@ -28,25 +30,33 @@ server_address: http://localhost:8080/fhir
 ```
 
 Adjust the port number depending on the port you run this server on.
->> Forproduction, the server address should be set the the hosted URL <https://gravity-ehr-server.herokuapp.com/fhir>.
 
-The easiest way to run this server entirely depends on your environment requirements. At least, the following 4 ways are supported:
+## Running locally
+The easiest way to run this server entirely depends on your environment requirements. The following ways are supported:
 
 ### Using jetty
 
 ```bash
-mvn jetty:run
+mvn -Pjetty spring-boot:run
 ```
 
-The server will then be accessible at <http://localhost:8080/fhir>.
+The Server will then be accessible at http://localhost:8080/fhir and the CapabilityStatement will be found at http://localhost:8080/fhir/metadata.
 
-If you need to run this server on a different port (using Maven), you can change the port in the run command as follows:
+### Using Spring Boot
 
 ```bash
-mvn -Djetty.port=8888 jetty:run
+mvn spring-boot:run
 ```
 
-Server will then be accessible at <http://localhost:8888/> and eg. <http://localhost:8888/fhir/metadata>. Remember to adjust you overlay configuration in the application.yaml to eg.
+The Server will then be accessible at http://localhost:8080/fhir and the CapabilityStatement will be found at http://localhost:8080/fhir/metadata.
+If you want to run this server on a different port, you can change the port in the `src/main/resources/application.yaml` file as follows:
+```yaml
+server:
+#  servlet:
+#    context-path: /example/path
+  port: 8888
+```
+The Server will then be accessible at http://localhost:8888/fhir and the CapabilityStatement will be found at http://localhost:8888/fhir/metadata. Remember to adjust your overlay configuration in the `application.yaml` file to the following:
 
 ```yaml
     tester:
@@ -64,7 +74,7 @@ Server will then be accessible at <http://localhost:8888/> and eg. <http://local
 mvn clean spring-boot:run -Pboot
 ```
 
-Server will then be accessible at <http://localhost:8080/> and eg. <http://localhost:8080/fhir/metadata>. Remember to adjust you overlay configuration in the application.yaml to eg.
+Server will then be accessible at http://localhost:8080/ and eg. http://localhost:8080/fhir/metadata. Remember to adjust you overlay configuration in the application.yaml to the following:
 
 ```yaml
     tester:
@@ -79,10 +89,24 @@ Server will then be accessible at <http://localhost:8080/> and eg. <http://local
 ### Using Spring Boot
 
 ```bash
-mvn clean package spring-boot:repackage -Pboot && java -jar target/ROOT.war
+mvn clean package spring-boot:repackage -DskipTests=true -Pboot && java -jar target/ROOT.war
 ```
+Server will then be accessible at http://localhost:8080/ and eg. http://localhost:8080/fhir/metadata. Remember to adjust your overlay configuration in the application.yaml to the following:
 
-Server will then be accessible at <http://localhost:8080/> and eg. <http://localhost:8080/fhir/metadata>. Remember to adjust you overlay configuration in the application.yaml to eg.
+```yaml
+    tester:
+      -
+          id: home
+          name: Local Tester
+          server_address: 'http://localhost:8080/fhir'
+          refuse_to_fetch_third_party_urls: false
+          fhir_version: R4
+```
+### Using Spring Boot and Google distroless
+```bash
+mvn clean package com.google.cloud.tools:jib-maven-plugin:dockerBuild -Dimage=distroless-hapi && docker run -p 8080:8080 distroless-hapi
+```
+Server will then be accessible at http://localhost:8080/ and eg. http://localhost:8080/fhir/metadata. Remember to adjust your overlay configuration in the application.yaml to the following:
 
 ```yaml
     tester:
@@ -100,7 +124,7 @@ Server will then be accessible at <http://localhost:8080/> and eg. <http://local
 ./build-docker-image.sh && docker run -p 8080:8080 hapi-fhir/gravity-ehr:latest
 ```
 
-Server will then be accessible at http://localhost:8080/ and eg. http://localhost:8080/fhir/metadata. Remember to adjust you overlay configuration in the application.yaml to eg.
+Server will then be accessible at http://localhost:8080/ and eg. http://localhost:8080/fhir/metadata. Remember to adjust your overlay configuration in the application.yaml to the following:
 
 ```yaml
     tester:

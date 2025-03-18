@@ -1,6 +1,6 @@
 package ca.uhn.fhir.jpa.starter.gravity.interceptors;
 
-import ca.uhn.fhir.jpa.starter.gravity.ServerLogger;
+import ca.uhn.fhir.jpa.starter.ServerLogger;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -23,7 +23,7 @@ import ca.uhn.fhir.rest.server.interceptor.auth.AuthorizationInterceptor;
 import ca.uhn.fhir.rest.server.exceptions.AuthenticationException;
 import ca.uhn.fhir.rest.server.interceptor.auth.IAuthRule;
 import ca.uhn.fhir.rest.server.interceptor.auth.RuleBuilder;
-import ca.uhn.fhir.jpa.starter.gravity.controllers.AuthorizationController;
+import ca.uhn.fhir.jpa.starter.authorization.AuthorizationController;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 
 @SuppressWarnings("ConstantConditions")
