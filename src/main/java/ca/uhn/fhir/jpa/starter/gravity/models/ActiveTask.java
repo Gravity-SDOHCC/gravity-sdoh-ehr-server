@@ -10,7 +10,6 @@ public class ActiveTask {
 	public ActiveTask(String taskId, String externalTaskId) {
 		this.taskId = taskId;
 		this.externalTaskId = externalTaskId;
-
 	}
 
 	public String getTaskId() {
@@ -32,5 +31,4 @@ public class ActiveTask {
 	public String toString() {
 		return "ActiveTask " + this.taskId + " (" + this.externalTaskId + ")";
 	}
-
 }
