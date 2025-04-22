@@ -7,7 +7,8 @@ import ca.uhn.fhir.jpa.starter.authorization.AuthorizationController;
 import ca.uhn.fhir.jpa.starter.cdshooks.StarterCdsHooksConfig;
 import ca.uhn.fhir.jpa.starter.cr.StarterCrDstu3Config;
 import ca.uhn.fhir.jpa.starter.cr.StarterCrR4Config;
-import ca.uhn.fhir.jpa.starter.gravity.interceptors.PostTaskInterceptor;
+import ca.uhn.fhir.jpa.starter.gravity.interceptors.PostPatientTaskInterceptor;
+import ca.uhn.fhir.jpa.starter.gravity.interceptors.PostReferralTaskInterceptor;
 import ca.uhn.fhir.jpa.starter.gravity.interceptors.SdohCapabilityStatementProvider;
 import ca.uhn.fhir.jpa.starter.mdm.MdmConfig;
 import ca.uhn.fhir.jpa.subscription.channel.config.SubscriptionChannelConfig;
@@ -61,7 +62,8 @@ public class Application extends SpringBootServletInitializer {
 	@Conditional(OnEitherVersion.class)
 	public ServletRegistrationBean hapiServletRegistration(RestfulServer restfulServer) {
 		restfulServer.registerInterceptor(new SdohCapabilityStatementProvider());
-		restfulServer.registerInterceptor(new PostTaskInterceptor());
+		restfulServer.registerInterceptor(new PostReferralTaskInterceptor());
+		restfulServer.registerInterceptor(new PostPatientTaskInterceptor());
 		ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean();
 		beanFactory.autowireBean(restfulServer);
 		servletRegistrationBean.setServlet(restfulServer);

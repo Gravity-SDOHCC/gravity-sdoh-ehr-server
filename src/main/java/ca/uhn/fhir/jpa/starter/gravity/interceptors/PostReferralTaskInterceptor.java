@@ -15,16 +15,10 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.ContactPoint;
+import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.ContactPoint.ContactPointSystem;
-import org.hl7.fhir.r4.model.Organization;
-import org.hl7.fhir.r4.model.Procedure;
-import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.Task;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,7 +28,8 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Interceptor
-public class PostTaskInterceptor {
+public class PostReferralTaskInterceptor {
+
 	@Autowired
 	AppProperties appProperties;
 
@@ -46,6 +41,8 @@ public class PostTaskInterceptor {
 
 	private static String thisServerBaseUrl = "";
 
+	private static final String REFERRAL_TASK_PROFILE = "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-TaskForReferralManagement";
+
 	@Hook(Pointcut.STORAGE_PRECOMMIT_RESOURCE_CREATED)
 	public void handleTaskCreation(
 			IBaseResource theResource, RequestDetails theRequestDetails, ResponseDetails theResponseDetails) {
@@ -54,6 +51,9 @@ public class PostTaskInterceptor {
 		}
 		thisServerBaseUrl = theRequestDetails.getFhirServerBase();
 		Task createdTask = (Task) theResource;
+		if (!isReferralTask(createdTask)) {
+			return;
+		}
 		String ownerServerBaseUrl = getTaskOwnerServerBaseUrl(createdTask);
 
 		if (ownerServerBaseUrl != null) {
@@ -260,7 +260,7 @@ public class PostTaskInterceptor {
 
 	private List<Task> fetchActiveTasksFromSelf(IGenericClient client) {
 		Integer size = activeTasksMap.size();
-		logger.info("PostTaskInterceptor::fetchActiveTasksFromSelf: CHECKING ACTIVE TASKS: " + size);
+		logger.info("PostReferralTaskInterceptor::fetchActiveTasksFromSelf: CHECKING ACTIVE TASKS: " + size);
 		if (size == 0) {
 			try {
 				activeTasksMap = AuthorizationController.getDB().getActiveTasks();
@@ -298,5 +298,12 @@ public class PostTaskInterceptor {
 		ctx.getRestfulClientFactory().setServerValidationMode(ServerValidationModeEnum.NEVER);
 		ctx.getRestfulClientFactory().setConnectTimeout(20 * 1000);
 		return ctx.newRestfulGenericClient(serverBaseUrl);
+	}
+
+	public boolean isReferralTask(Task createdTask){
+		if ( createdTask.hasMeta() && createdTask.getMeta().hasProfile() && createdTask.getMeta().getProfile().get(0).equals(REFERRAL_TASK_PROFILE)) {
+			return true;
+		}
+		return false;
 	}
 }

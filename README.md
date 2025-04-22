@@ -165,7 +165,7 @@ To ensure that all the required search parametes are supported, make sure to loa
 
 ### Task Referral Management: [Direct Workflow](https://build.fhir.org/ig/HL7/fhir-sdoh-clinicalcare/referral_workflow.html#direct-referral)
 
-There is an interceptor `PostTaskInterceptor` (`src/main/java/ca/uhn/fhir/jpa/starter/gravity/interceptors/PostTaskInterceptor.java`) that is used to manage Task referral requests between this server (referral source server) and a task referral recipient server (Coordination Platform server or CBO server). This interceptor functions are as follows:
+There is an interceptor `PostReferralTaskInterceptor` (`src/main/java/ca/uhn/fhir/jpa/starter/gravity/interceptors/PostReferralTaskInterceptor.java`) that is used to manage Task referral requests between this server (referral source server) and a task referral recipient server (Coordination Platform server or CBO server). This interceptor functions are as follows:
 
 - on task creation, the interceptor retrieves the receiver server URL from the `Task.owner` Organization resource, and post the task to the receiver server.
 
