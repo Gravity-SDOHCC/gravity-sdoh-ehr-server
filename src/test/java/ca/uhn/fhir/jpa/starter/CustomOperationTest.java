@@ -18,7 +18,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 		"spring.datasource.url=jdbc:h2:mem:dbr4",
 		"hapi.fhir.cr_enabled=false",
 		// "hapi.fhir.enable_repository_validating_interceptor=true",
-		"hapi.fhir.fhir_version=r4"
+		"hapi.fhir.fhir_version=r4",
+		"spring.jpa.properties.hibernate.search.backend.directory.type=local-heap"
 })
 
 class CustomOperationTest {

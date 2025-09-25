@@ -107,7 +107,7 @@ public class PostPatientTaskInterceptor {
                             .withVersion("4.0.1")
                             .withNoTerminologyServer()
                             .fromSource("hl7.fhir.r4.core#4.0.1");
-                    validationEngine.loadPackage("hl7.fhir.us.sdoh-clinicalcare", "2.0.0");
+                    validationEngine.loadPackage("hl7.fhir.us.sdoh-clinicalcare", "2.3.0");
                     validationEngine.setVersion(FhirPublication.R4.toCode());
                     validationEngine.setAllowExampleUrls(true);
                     String source = thisServerBaseUrl+"/QuestionnaireResponse/"+questionnaireResponse.getIdPart();

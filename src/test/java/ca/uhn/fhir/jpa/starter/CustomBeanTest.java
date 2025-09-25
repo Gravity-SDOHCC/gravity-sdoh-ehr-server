@@ -13,7 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 		"hapi.fhir.mdm_enabled=false",
 		"hapi.fhir.cr_enabled=false",
 		"hapi.fhir.subscription.websocket_enabled=false",
-		"spring.main.allow-bean-definition-overriding=true"
+		"spring.main.allow-bean-definition-overriding=true",
+		"spring.jpa.properties.hibernate.search.backend.directory.type=local-heap"
 })
 class CustomBeanTest {
 

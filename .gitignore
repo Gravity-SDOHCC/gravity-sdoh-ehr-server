@@ -65,9 +65,6 @@ cmake-build-*/
 # IntelliJ
 out/
 
-# VSCode
-.vscode
-
 # JIRA plugin
 atlassian-ide-plugin.xml
 
@@ -127,7 +124,6 @@ local.properties
 .factorypath
 .project
 .settings
-.springBeans
 .sts4-cache
 
 # Code Recommenders
@@ -172,6 +168,4 @@ Temporary Items
 # Helm Chart dependencies
 **/charts/*.tgz
 
-# Cli
-hapi-fhir-cli
-hapi-fhir-cli.cmd
+server.log.*

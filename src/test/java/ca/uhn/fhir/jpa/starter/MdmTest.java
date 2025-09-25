@@ -8,19 +8,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import ca.uhn.fhir.jpa.api.config.JpaStorageSettings;
 import ca.uhn.fhir.jpa.nickname.INicknameSvc;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {Application.class}, properties = {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 		"hapi.fhir.fhir_version=r4",
-		"hapi.fhir.mdm_enabled=true"
+		"hapi.fhir.mdm_enabled=true",
+		"spring.jpa.properties.hibernate.search.backend.directory.type=local-heap"
 })
 class MdmTest {
 	@Autowired
 	INicknameSvc nicknameService;
-	
-	@Autowired
-	JpaStorageSettings jpaStorageSettings;
 
 	@Autowired
 	SubscriptionSettings subscriptionSettings;
