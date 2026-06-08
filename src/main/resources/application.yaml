@@ -246,7 +246,7 @@ hapi:
     implementationguides:
       sdoh:
         name: hl7.fhir.us.sdoh-clinicalcare
-        version: 2.3.0
+        version: 3.0.0-ballot
         installMode: STORE_AND_INSTALL
       uscore-70:
         name: hl7.fhir.us.core
