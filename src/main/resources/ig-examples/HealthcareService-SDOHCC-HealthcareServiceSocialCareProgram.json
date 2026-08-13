@@ -1,0 +1,59 @@
+{
+  "resourceType" : "HealthcareService",
+  "id" : "SDOHCC-HealthcareServiceSocialCareProgram",
+  "meta" : {
+    "profile" : ["http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-HealthcareServiceForReferralManagement"]
+  },
+  "language" : "en",
+  "text" : {
+    "status" : "extensions",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p class=\"res-header-id\"><b>Generated Narrative: HealthcareService SDOHCC-HealthcareServiceSocialCareProgram</b></p><a name=\"SDOHCC-HealthcareServiceSocialCareProgram\"> </a><a name=\"hcSDOHCC-HealthcareServiceSocialCareProgram\"> </a><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\"/><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-SDOHCC-HealthcareServiceForReferralManagement.html\">SDOHCC Healthcare Service for Referral Management</a></p></div><blockquote><p><b>SDOHCC Extension HealthcareService Capacity Status</b></p><ul><li>capacityStatus: <span title=\"Codes:{http://hl7.org/fhir/us/sdoh-clinicalcare/CodeSystem/SDOHCC-CodeSystemTemporaryCodes capacity}\">Has Capacity</span></li></ul></blockquote><p><b>active</b>: true</p><p><b>category</b>: <span title=\"Codes:{http://hl7.org/fhir/us/core/CodeSystem/us-core-category sdoh}, {http://hl7.org/fhir/us/sdoh-clinicalcare/CodeSystem/SDOHCC-CodeSystemTemporaryCodes housing-instability}\">SDOH</span></p><p><b>type</b>: <span title=\"Codes:{http://terminology.hl7.org/CodeSystem/service-type 252}\">Assessment</span></p><p><b>location</b>: <a href=\"Location-SDOHCC-LocationExample.html\">Location Family Counseling Services Deerland Clinic</a></p><p><b>providedBy</b>: <a href=\"Organization-SDOHCC-OrganizationClinicExample.html\">Organization Better Health Clinic</a></p><p><b>name</b>: HACC</p><p><b>program</b>: <span title=\"Codes:{http://terminology.hl7.org/CodeSystem/program 21}\">Home And Community Care (HACC)</span></p></div>"
+  },
+  "extension" : [{
+    "extension" : [{
+      "url" : "capacityStatus",
+      "valueCodeableConcept" : {
+        "coding" : [{
+          "system" : "http://hl7.org/fhir/us/sdoh-clinicalcare/CodeSystem/SDOHCC-CodeSystemTemporaryCodes",
+          "code" : "capacity",
+          "display" : "Has Capacity"
+        }]
+      }
+    }],
+    "url" : "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-ExtensionHealthcareServiceCapacityStatus"
+  }],
+  "active" : true,
+  "category" : [{
+    "coding" : [{
+      "system" : "http://hl7.org/fhir/us/core/CodeSystem/us-core-category",
+      "code" : "sdoh",
+      "display" : "SDOH"
+    },
+    {
+      "system" : "http://hl7.org/fhir/us/sdoh-clinicalcare/CodeSystem/SDOHCC-CodeSystemTemporaryCodes",
+      "code" : "housing-instability",
+      "display" : "Housing instability"
+    }]
+  }],
+  "type" : [{
+    "coding" : [{
+      "system" : "http://terminology.hl7.org/CodeSystem/service-type",
+      "code" : "252",
+      "display" : "Assessment"
+    }]
+  }],
+  "location" : [{
+    "reference" : "Location/SDOHCC-LocationExample"
+  }],
+  "providedBy" : {
+    "reference" : "Organization/SDOHCC-OrganizationClinicExample"
+  },
+  "name" : "HACC",
+  "program" : [{
+    "coding" : [{
+      "system" : "http://terminology.hl7.org/CodeSystem/program",
+      "code" : "21",
+      "display" : "Home And Community Care (HACC)"
+    }]
+  }]
+}
